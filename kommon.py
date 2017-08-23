@@ -13,5 +13,5 @@ def prompt(txt,title='COMMON'):
 
 # Elem terefiş, kem gözlere şiş!
 if __name__ == '__main__':
-    sys.exit(main())
+    pass
 
