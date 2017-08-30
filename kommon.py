@@ -9,7 +9,7 @@ __version__ = '0.1'
 
 # Definition to prompt.
 def prompt(txt,title='COMMON'):
-    print '[%s] [%s] %s' % (str(datetime.now()),title,txt)
+    print('[%s] [%s] %s' % (str(datetime.now()),title,txt))
 
 
 # Elem terefiş, kem gözlere şiş!
