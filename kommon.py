@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 
 import sys
+import numpy as np
 from datetime import datetime
 
 __author__  = ('Kaan Akşit')
