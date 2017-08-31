@@ -15,7 +15,7 @@ def prompt(txt,title='COMMON'):
 # Definition to generate a plane perpendicular to Z axis.
 def generateplane(point):
     plane = np.array([
-                      [point[0]+10 ,point[1]    ,point[2]],
+                      [point[0]+10 ,point[1]+10 ,point[2]],
                       [point[0]    ,point[1]+10 ,point[2]],
                       [point[0]    ,point[1]    ,point[2]]
                      ])
