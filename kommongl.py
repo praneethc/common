@@ -22,13 +22,15 @@ class drawgl:
     def __init__(self,res=[1000,1000],loc=[0,0],title='OpenGL',lightflag=True,transparencyflag=True):
         # Title of the window,
         self.title = title
-        # Resolution and location.
+        # Resolution and location,
         self.res   = np.asarray(res)
         self.loc   = np.asarray(loc)
         # Initialize the OpenGL pipeline,
         glutInit()
-        # Set the light flag.
-        self.lightflag = lightflag
+        # Set the light flag,
+        self.lightflag   = lightflag
+        # Set the polygon mode: GL_FILL or GL_LINE,
+        self.polygonmode = GL_FILL
         # Set OpenGL display mode,
         glutInitDisplayMode(GLUT_RGB | GLUT_DOUBLE | GLUT_DEPTH)
         # Set the Window size and position,
@@ -169,6 +171,8 @@ class drawgl:
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
         # Set shade model,
         glShadeModel(self.surface)
+        # Wireframe or fill?
+        glPolygonMode( GL_FRONT_AND_BACK, self.polygonmode )
         self.draw()
         glutSwapBuffers()
     # Definition to pass the uniforms,
@@ -313,35 +317,43 @@ class drawgl:
         glBegin(GL_QUADS)
         glColor4f(color[0],color[1],color[2],color[3])
 
-        glVertex3f( loc[0]+width/2., loc[1]+height/2., loc[2]-length/2.)
-        glVertex3f( loc[0]-width/2., loc[1]+height/2., loc[2]-length/2.)
-        glVertex3f( loc[0]-width/2., loc[1]+height/2., loc[2]+length/2.)
-        glVertex3f( loc[0]+width/2., loc[1]+height/2., loc[2]+length/2.)
+        pos = np.array([
+                        [ width/2.,  height/2., -length/2.],
+                        [-width/2.,  height/2., -length/2.],
+                        [-width/2.,  height/2.,  length/2.],
+                        [ width/2.,  height/2.,  length/2.],
 
-        glVertex3f( loc[0]+width/2., loc[1]-height/2., loc[2]+length/2.)
-        glVertex3f( loc[0]-width/2., loc[1]-height/2., loc[2]+length/2.)
-        glVertex3f( loc[0]-width/2., loc[1]-height/2., loc[2]-length/2.)
-        glVertex3f( loc[0]+width/2., loc[1]-height/2., loc[2]-length/2.)
+                        [ width/2., -height/2.,  length/2.],
+                        [-width/2., -height/2.,  length/2.],
+                        [-width/2., -height/2., -length/2.],
+                        [ width/2., -height/2., -length/2.],
 
-        glVertex3f( loc[0]+width/2., loc[1]+height/2., loc[2]+length/2.)
-        glVertex3f( loc[0]-width/2., loc[1]+height/2., loc[2]+length/2.)
-        glVertex3f( loc[0]-width/2., loc[1]-height/2., loc[2]+length/2.)
-        glVertex3f( loc[0]+width/2., loc[1]-height/2., loc[2]+length/2.)
+                        [ width/2.,  height/2.,  length/2.],
+                        [-width/2.,  height/2.,  length/2.],
+                        [-width/2., -height/2.,  length/2.],
+                        [ width/2., -height/2.,  length/2.],
 
-        glVertex3f( loc[0]+width/2., loc[1]-height/2., loc[2]-length/2.)
-        glVertex3f( loc[0]-width/2., loc[1]-height/2., loc[2]-length/2.)
-        glVertex3f( loc[0]-width/2., loc[1]+height/2., loc[2]-length/2.)
-        glVertex3f( loc[0]+width/2., loc[1]+height/2., loc[2]-length/2.)
+                        [ width/2., -height/2., -length/2.],
+                        [-width/2., -height/2., -length/2.],
+                        [-width/2.,  height/2., -length/2.],
+                        [ width/2.,  height/2., -length/2.],
 
-        glVertex3f( loc[0]-width/2., loc[1]+height/2., loc[2]+length/2.)
-        glVertex3f( loc[0]-width/2., loc[1]+height/2., loc[2]-length/2.)
-        glVertex3f( loc[0]-width/2., loc[1]-height/2., loc[2]-length/2.)
-        glVertex3f( loc[0]-width/2., loc[1]-height/2., loc[2]+length/2.)
+                        [-width/2.,  height/2.,  length/2.],
+                        [-width/2.,  height/2., -length/2.],
+                        [-width/2., -height/2., -length/2.],
+                        [-width/2., -height/2.,  length/2.],
 
-        glVertex3f( loc[0]+width/2., loc[1]+height/2., loc[2]-length/2.)
-        glVertex3f( loc[0]+width/2., loc[1]+height/2., loc[2]+length/2.)
-        glVertex3f( loc[0]+width/2., loc[1]-height/2., loc[2]+length/2.)
-        glVertex3f( loc[0]+width/2., loc[1]-height/2., loc[2]-length/2.)
+                        [ width/2.,  height/2., -length/2.],
+                        [ width/2.,  height/2.,  length/2.],
+                        [ width/2., -height/2.,  length/2.],
+                        [ width/2., -height/2., -length/2.]
+                       ])
+
+        for id in range(0,24):
+            item        = pos[id]
+            item,_,_,_  = rotatepoint(item,angles=angles)
+            item       += loc
+            glVertex3f(item[0],item[1],item[2])
 
         glEnd()
 

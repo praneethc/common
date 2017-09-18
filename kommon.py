@@ -13,12 +13,15 @@ def prompt(txt,title='COMMON'):
     print('[%s] [%s] %s' % (str(datetime.now()),title,txt))
 
 # Definition to generate a plane perpendicular to Z axis.
-def generateplane(point):
+def generateplane(point,angles=[0.,0.,0.]):
     plane = np.array([
-                      [point[0]+10 ,point[1]+10 ,point[2]],
-                      [point[0]    ,point[1]+10 ,point[2]],
-                      [point[0]    ,point[1]    ,point[2]]
+                      [10., 10., 0.],
+                      [ 0., 10., 0.],
+                      [ 0.,  0., 0.]
                      ])
+    for i in range(0,plane.shape[0]):
+        plane[i],_,_,_  = rotatepoint(plane[i],angles=angles)
+        plane[i]       += point
     return plane
 
 # Definition to generate a rotation matrix along X axis.
