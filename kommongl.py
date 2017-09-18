@@ -51,7 +51,7 @@ class drawgl:
         # Viewport settings,
         self.camera_center   = np.array([0.,0.,0.])
         self.camera_rotation = np.array([0.,0.])
-        self.camera_pos      = np.array([0.,0.1,20.])
+        self.camera_pos      = np.array([0.,0.1,60.])
         self.camera_shift    = False
         self.camera_rot      = False
         # Compute viewport location,
@@ -97,7 +97,7 @@ class drawgl:
         diff                     = np.zeros((3))
         diff[0:2]                = (self.mouse_pos - np.array([x,y]))*10./self.res
         diff[1]                 *= -1
-        d                        = np.sqrt(diff[0]**2+diff[1]**2+diff[2]**2)
+        diff                     = np.dot(rot0,np.dot(rot1,diff))
         diff                    *= self.camera_shift*(not self.camera_rot)
         self.camera_center      -= diff
         self.camera_pos         -= diff
@@ -107,9 +107,11 @@ class drawgl:
                              self.camera_pos[1]-self.camera_center[1],
                              self.camera_pos[2]-self.camera_center[2]
                             ])
-            self.camera_rotation    -= (np.array([x,y])-self.mouse_pos)/100.
+            rot_diff                 = (self.mouse_pos-np.array([x,y]))/10.
+            self.camera_rotation    += np.array([-rot_diff[0],rot_diff[1]])
+            pdiff                    = np.array([0.,0.,np.sqrt(np.sum(pdiff**2))])
             self.camera_pos          = self.camera_center+np.dot(rot0,np.dot(rot1,pdiff))
-        self.mouse_pos           = np.array([x,y])
+        self.mouse_pos = np.array([x,y])
         self.compute_location()
     # Definition for handling mouse events,
     def mouse(self,button,state,x,y):
