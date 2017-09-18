@@ -19,7 +19,7 @@ __version__ = '0.1'
 # Class for drawing using OpenGL.
 class drawgl:
     # Constructor for the class
-    def __init__(self,res=[1000,1000],loc=[0,0],title='OpenGL',lightflag=False):
+    def __init__(self,res=[1000,1000],loc=[0,0],title='OpenGL',lightflag=True,transparencyflag=True):
         # Title of the window,
         self.title = title
         # Resolution and location.
@@ -27,6 +27,8 @@ class drawgl:
         self.loc   = np.asarray(loc)
         # Initialize the OpenGL pipeline,
         glutInit()
+        # Set the light flag.
+        self.lightflag = lightflag
         # Set OpenGL display mode,
         glutInitDisplayMode(GLUT_RGB | GLUT_DOUBLE | GLUT_DEPTH)
         # Set the Window size and position,
@@ -36,18 +38,16 @@ class drawgl:
         glutCreateWindow(self.title)
         # Set background color,
         glClearColor(0.0, 0.0, 0.0, 0.0)
+        # Transparency settings,
+        if transparencyflag == True:
+            glEnable(GL_BLEND)
+            glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA)
         # List of things to render,
         self.items     = []
         # Timer variable,
         self.last_time = 0
-        # Direction of light,
-        self.direction = [0.0, 2.0, -1.0, 1.0]
-        # Intensity of light,
-        self.intensity = [0.7, 0.7, 0.7, 1.0]
-        # Intensity of ambient light,
-        self.ambient_intensity = [0.3, 0.3, 0.3, 1.0]
         # The surface type(Flat or Smooth),
-        self.surface = GL_FLAT
+        self.surface = GL_SMOOTH
         # Viewport settings,
         self.camera_center   = np.array([0.,0.,0.])
         self.camera_rotation = np.array([0.,0.])
@@ -61,7 +61,11 @@ class drawgl:
         # Set OpenGL parameters,
         glEnable(GL_DEPTH_TEST)
         # Light settings,
-        if lightflag == True:
+        if self.lightflag == True:
+            # Intensity of light,
+            self.intensity = [0.7, 0.7, 0.7, 1.0]
+            # Intensity of ambient light,
+            self.ambient_intensity = [0.3, 0.3, 0.3, 1.0]
             # Enable lighting,
             glEnable(GL_LIGHTING)
             # Set light model,
@@ -69,7 +73,7 @@ class drawgl:
             # Enable light number 0,
             glEnable(GL_LIGHT0)
             # Set position and intensity of light,
-            glLightfv(GL_LIGHT0, GL_POSITION, self.direction)
+            glLightfv(GL_LIGHT0, GL_POSITION, [0.,0.,100.])
             glLightfv(GL_LIGHT0, GL_DIFFUSE, self.intensity)
         # Setup the material,
         glEnable(GL_COLOR_MATERIAL)
@@ -157,6 +161,9 @@ class drawgl:
                   0,
                   1
                  )
+        # Set light.
+        if self.lightflag == True:
+            glLightfv(GL_LIGHT0, GL_POSITION, self.camera_pos)
     # Display definition,
     def display(self):
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
@@ -173,6 +180,8 @@ class drawgl:
         # Run the OpenGL main loop,
         self.camera_center  = (self.pmax+self.pmin)/2.
         self.camera_pos    += self.camera_center
+        if np.count_nonzero(self.pmax) == 0 :
+            self.pmax = np.array([10.,10.,10.])
         self.camera_pos[2]  = (np.amax(self.pmax[0:2])+np.abs(np.amin(self.pmin[0:2])))
         self.compute_location()
         glutMainLoop()
@@ -182,12 +191,6 @@ class drawgl:
         prompt('Pressed key: %s' % key,self.title)
         if key == b'q':
            sys.exit()
-        # Toggle the surface,
-        if key == GLUT_KEY_F1:
-            if self.surface == GL_FLAT:
-                self.surface = GL_SMOOTH
-            else:
-                self.surface = GL_FLAT
         self.compute_location()
         glutPostRedisplay()
     # The idle callback,
@@ -215,6 +218,8 @@ class drawgl:
                            )
             elif item[0] == 'ray':
                 self.ray(p0=item[2],p1=item[3],color=item[4])
+            elif item[0] == 'box':
+                self.rectangularbox(loc=item[2],angles=item[3],size=item[4],color=item[5])
     # Definition to add a ray to the rendering list,
     def addray(self,p0,p1,id=0,color=[1.,0.,0.,0.],adddots=True):
         self.items.append(['ray',id,p0,p1,color])
@@ -242,7 +247,6 @@ class drawgl:
         self.maxmin(loc)
     # Draw a sphere,
     def sphere(self,loc=[0,0,0],lats=10,longs=10,angs=[pi,pi],r=1.,color=[1.,0.,0.,0.]):
-        glPolygonMode( GL_FRONT_AND_BACK, GL_LINE )
         for i in range(0, lats + 1):
             lat0 = angs[0] * (-0.5 + float(float(i - 1) / float(lats)))
             z0 = sin(lat0)*r
@@ -263,8 +267,75 @@ class drawgl:
                 glVertex3f(x * zr0+loc[0], y * zr0+loc[1], z0+loc[2])
                 glNormal3f(x * zr1+loc[0], y * zr1+loc[1], z1+loc[2])
                 glVertex3f(x * zr1+loc[0], y * zr1+loc[1], z1+loc[2])
-
             glEnd()
+    # Definition to add a plane to the rendering list,
+    def addplane(self,loc,size,angles,id=0,color=[0.,1.,0.,0.]):
+        self.items.append(['plane',id,loc,size,angles,color])
+        loc = np.asarray(loc)
+        self.maxmin(loc+size[0]/2.)
+        self.maxmin(loc+size[1]/2.)
+        self.maxmin(loc-size[0]/2.)
+        self.maxmin(loc-size[1]/2.)
+    # Draw a plane.
+    def plane(self,loc=[0,0,0],size=[10.,10.],angles=[0.,0.,0.],color=[0.,1.,0.,0.]):
+        glBegin(GL_QUADS)
+        glColor4f(color[0],color[1],color[2],color[3])
+        glVertex3f( loc[0]+size[0]/2., loc[1]+size[1]/2., loc[2])
+        glVertex3f( loc[0]-size[0]/2., loc[1]+size[1]/2., loc[2])
+        glVertex3f( loc[0]-size[0]/2., loc[1]-size[1]/2., loc[2])
+        glVertex3f( loc[0]+size[0]/2., loc[1]-size[1]/2., loc[2])
+        glEnd()
+    # Definition to add a rectangular box to the rendering list,
+    def addbox(self,loc,angles,size,id=0,color=[0.,1.,0.,0.]):
+        self.items.append(['box',id,loc,angles,size,color])
+        loc = np.asarray(loc)
+        self.maxmin(loc+size[0]/2.)
+        self.maxmin(loc+size[1]/2.)
+        self.maxmin(loc+size[2]/2.)
+        self.maxmin(loc-size[0]/2.)
+        self.maxmin(loc-size[1]/2.)
+        self.maxmin(loc-size[2]/2.)
+    # Draw a box.
+    def rectangularbox(self,loc=[0,0,0],angles=[0,0,0],size=[10.,20.,30.],color=[0.,1.,0.,0.]):
+        width  = size[0]
+        height = size[1]
+        length = size[2]
+
+        glBegin(GL_QUADS)
+        glColor4f(color[0],color[1],color[2],color[3])
+
+        glVertex3f( loc[0]+width/2., loc[1]+height/2., loc[2]-length/2.)
+        glVertex3f( loc[0]-width/2., loc[1]+height/2., loc[2]-length/2.)
+        glVertex3f( loc[0]-width/2., loc[1]+height/2., loc[2]+length/2.)
+        glVertex3f( loc[0]+width/2., loc[1]+height/2., loc[2]+length/2.)
+
+        glVertex3f( loc[0]+width/2., loc[1]-height/2., loc[2]+length/2.)
+        glVertex3f( loc[0]-width/2., loc[1]-height/2., loc[2]+length/2.)
+        glVertex3f( loc[0]-width/2., loc[1]-height/2., loc[2]-length/2.)
+        glVertex3f( loc[0]+width/2., loc[1]-height/2., loc[2]-length/2.)
+
+        glVertex3f( loc[0]+width/2., loc[1]+height/2., loc[2]+length/2.)
+        glVertex3f( loc[0]-width/2., loc[1]+height/2., loc[2]+length/2.)
+        glVertex3f( loc[0]-width/2., loc[1]-height/2., loc[2]+length/2.)
+        glVertex3f( loc[0]+width/2., loc[1]-height/2., loc[2]+length/2.)
+
+        glVertex3f( loc[0]+width/2., loc[1]-height/2., loc[2]-length/2.)
+        glVertex3f( loc[0]-width/2., loc[1]-height/2., loc[2]-length/2.)
+        glVertex3f( loc[0]-width/2., loc[1]+height/2., loc[2]-length/2.)
+        glVertex3f( loc[0]+width/2., loc[1]+height/2., loc[2]-length/2.)
+
+        glVertex3f( loc[0]-width/2., loc[1]+height/2., loc[2]+length/2.)
+        glVertex3f( loc[0]-width/2., loc[1]+height/2., loc[2]-length/2.)
+        glVertex3f( loc[0]-width/2., loc[1]-height/2., loc[2]-length/2.)
+        glVertex3f( loc[0]-width/2., loc[1]-height/2., loc[2]+length/2.)
+
+        glVertex3f( loc[0]+width/2., loc[1]+height/2., loc[2]-length/2.)
+        glVertex3f( loc[0]+width/2., loc[1]+height/2., loc[2]+length/2.)
+        glVertex3f( loc[0]+width/2., loc[1]-height/2., loc[2]+length/2.)
+        glVertex3f( loc[0]+width/2., loc[1]-height/2., loc[2]-length/2.)
+
+        glEnd()
+
 
 # Elem terefiş, kem gözlere şiş!
 if __name__ == '__main__':
