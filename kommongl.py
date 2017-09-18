@@ -19,7 +19,7 @@ __version__ = '0.1'
 # Class for drawing using OpenGL.
 class drawgl:
     # Constructor for the class
-    def __init__(self,res=[600,600],loc=[0,0],title='OpenGL'):
+    def __init__(self,res=[1000,1000],loc=[0,0],title='OpenGL',lightflag=False):
         # Title of the window,
         self.title = title
         # Resolution and location.
@@ -35,7 +35,7 @@ class drawgl:
         # Create the window with given title,
         glutCreateWindow(self.title)
         # Set background color,
-        glClearColor(1.0, 1.0, 1.0, 0.0)
+        glClearColor(0.0, 0.0, 0.0, 0.0)
         # List of things to render,
         self.items     = []
         # Timer variable,
@@ -51,22 +51,26 @@ class drawgl:
         # Viewport settings,
         self.camera_center   = np.array([0.,0.,0.])
         self.camera_rotation = np.array([0.,0.])
-        self.camera_pos      = np.array([0.,0.1,60.])
+        self.camera_pos      = np.array([0.,0.1,10.])
         self.camera_shift    = False
         self.camera_rot      = False
+        self.pmax            = np.zeros((3))
+        self.pmin            = np.zeros((3))
         # Compute viewport location,
         self.compute_location()
         # Set OpenGL parameters,
         glEnable(GL_DEPTH_TEST)
-        # Enable lighting,
-        glEnable(GL_LIGHTING)
-        # Set light model,
-        glLightModelfv(GL_LIGHT_MODEL_AMBIENT, self.ambient_intensity)
-        # Enable light number 0,
-        glEnable(GL_LIGHT0)
-        # Set position and intensity of light,
-        glLightfv(GL_LIGHT0, GL_POSITION, self.direction)
-        glLightfv(GL_LIGHT0, GL_DIFFUSE, self.intensity)
+        # Light settings,
+        if lightflag == True:
+            # Enable lighting,
+            glEnable(GL_LIGHTING)
+            # Set light model,
+            glLightModelfv(GL_LIGHT_MODEL_AMBIENT, self.ambient_intensity)
+            # Enable light number 0,
+            glEnable(GL_LIGHT0)
+            # Set position and intensity of light,
+            glLightfv(GL_LIGHT0, GL_POSITION, self.direction)
+            glLightfv(GL_LIGHT0, GL_DIFFUSE, self.intensity)
         # Setup the material,
         glEnable(GL_COLOR_MATERIAL)
         glColorMaterial(GL_FRONT, GL_AMBIENT_AND_DIFFUSE)
@@ -167,6 +171,10 @@ class drawgl:
     # Start displaying,
     def start(self):
         # Run the OpenGL main loop,
+        self.camera_center  = (self.pmax+self.pmin)/2.
+        self.camera_pos    += self.camera_center
+        self.camera_pos[2]  = (np.amax(self.pmax[0:2])+np.abs(np.amin(self.pmin[0:2])))
+        self.compute_location()
         glutMainLoop()
         return
     # Keyboard controller for the viewport,
@@ -198,30 +206,42 @@ class drawgl:
         for item in self.items:
             if item[0] == 'sphere':
                 self.sphere(
-                            loc=[item[2],item[3],item[4]],
-                            lats=item[5],
-                            longs=item[6],
-                            angs=[item[7],item[8]],
-                            r=item[9],
-                            color=item[10]
+                            loc=item[2],
+                            lats=item[3],
+                            longs=item[4],
+                            angs=item[5],
+                            r=item[6],
+                            color=item[7]
                            )
             elif item[0] == 'ray':
                 self.ray(p0=item[2],p1=item[3],color=item[4])
     # Definition to add a ray to the rendering list,
-    def addray(self,p0,p1,id=0,color=[1.,0.,0.]):
+    def addray(self,p0,p1,id=0,color=[1.,0.,0.,0.],adddots=True):
         self.items.append(['ray',id,p0,p1,color])
+        if adddots == True:
+            self.addsphere(id=id,loc=p1,lats=1,longs=1,r=0.1,color=color)
+        self.maxmin(p0)
+        self.maxmin(p1)
+    # Definition to update the maximum and minimum.
+    def maxmin(self,p):
+        for id in range(0,3):
+            if p[id] > self.pmax[id]:
+               self.pmax[id] = p[id]
+            if p[id] < self.pmin[id]:
+               self.pmin[id] = p[id]
     # Draw a ray,
-    def ray(self,p0=[0,0,0],p1=[10,10,10],color=[1.,0.,0.]):
+    def ray(self,p0=[0,0,0],p1=[10,10,10],color=[1.,0.,0.,0.]):
         glBegin(GL_LINES)
-        glColor3f(color[0],color[1],color[2])
+        glColor4f(color[0],color[1],color[2],color[3])
         glVertex3f(p0[0], p0[1], p0[2])
         glVertex3f(p1[0], p1[1], p1[2])
         glEnd()
     # Definition to add a sphere to the rendering list,
-    def addsphere(self,id=0,loc=[0,0,0],lats=10,longs=10,angs=[pi,pi],r=1.,color=[1.,0.,0.]):
-        self.items.append(['sphere',id,loc[0],loc[1],loc[2],lats,longs,angs[0],angs[1],r,color])
+    def addsphere(self,id=0,loc=[0,0,0],lats=10,longs=10,angs=[pi,pi],r=1.,color=[1.,0.,0.,0.]):
+        self.items.append(['sphere',id,loc,lats,longs,angs,r,color])
+        self.maxmin(loc)
     # Draw a sphere,
-    def sphere(self,loc=[0,0,0],lats=10,longs=10,angs=[pi,pi],r=1.,color=[1.,0.,0.]):
+    def sphere(self,loc=[0,0,0],lats=10,longs=10,angs=[pi,pi],r=1.,color=[1.,0.,0.,0.]):
         glPolygonMode( GL_FRONT_AND_BACK, GL_LINE )
         for i in range(0, lats + 1):
             lat0 = angs[0] * (-0.5 + float(float(i - 1) / float(lats)))
@@ -234,7 +254,7 @@ class drawgl:
 
             # Use Quad strips to draw the sphere,
             glBegin(GL_QUAD_STRIP)
-            glColor4f(color[0],color[1],color[2],self.alpha)
+            glColor4f(color[0],color[1],color[2],color[3])
             for j in range(0, longs + 1):
                 lng = 2 * pi * float(float(j - 1) / float(longs))
                 x = cos(lng)
