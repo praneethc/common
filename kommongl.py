@@ -220,6 +220,8 @@ class drawgl:
                 self.ray(p0=item[2],p1=item[3],color=item[4])
             elif item[0] == 'box':
                 self.rectangularbox(loc=item[2],angles=item[3],size=item[4],color=item[5])
+            elif item[0] == 'plane':
+                self.plane(loc=item[2],size=item[3],angles=item[4],color=item[5])
     # Definition to add a ray to the rendering list,
     def addray(self,p0,p1,id=0,color=[1.,0.,0.,0.],adddots=True):
         self.items.append(['ray',id,p0,p1,color])
@@ -277,13 +279,20 @@ class drawgl:
         self.maxmin(loc-size[0]/2.)
         self.maxmin(loc-size[1]/2.)
     # Draw a plane.
-    def plane(self,loc=[0,0,0],size=[10.,10.],angles=[0.,0.,0.],color=[0.,1.,0.,0.]):
+    def plane(self,loc=[0,0,0],size=[10.,10.],angles=[0.,0.,0.],color=[0.,0.1,0.,0.]):
         glBegin(GL_QUADS)
         glColor4f(color[0],color[1],color[2],color[3])
-        glVertex3f( loc[0]+size[0]/2., loc[1]+size[1]/2., loc[2])
-        glVertex3f( loc[0]-size[0]/2., loc[1]+size[1]/2., loc[2])
-        glVertex3f( loc[0]-size[0]/2., loc[1]-size[1]/2., loc[2])
-        glVertex3f( loc[0]+size[0]/2., loc[1]-size[1]/2., loc[2])
+        pos  = np.array([
+                         [ size[0]/2.,  size[1]/2., 0.],
+                         [-size[0]/2.,  size[1]/2., 0.],
+                         [-size[0]/2., -size[1]/2., 0.],
+                         [ size[0]/2., -size[1]/2., 0.]
+                        ])
+        for id in range(0,4):
+            item        = pos[id]
+            item,_,_,_  = rotatepoint(item,angles=angles)
+            item       += loc
+            glVertex3f(item[0],item[1],item[2])
         glEnd()
     # Definition to add a rectangular box to the rendering list,
     def addbox(self,loc,angles,size,id=0,color=[0.,1.,0.,0.]):
