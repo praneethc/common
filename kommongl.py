@@ -8,9 +8,13 @@ try:
     from OpenGL.GL import *
     from OpenGL.GLU import *
     from OpenGL.GLUT import *
+    import imgui
+    import imgui.integrations.opengl
+    from imgui.integrations.opengl import ProgrammablePipelineRenderer,FixedPipelineRenderer
 except:
-    prompt("OpenGL wrapper for python not found",title='OpenGL')
+    prompt("OpenGL wrapper and Imgui for python not found",title='OpenGL')
     sys.exit()
+#print(dir(imgui.integrations.opengl));sys.exit()
 
 __author__  = ('Kaan Akşit')
 __version__ = '0.1'
@@ -89,9 +93,22 @@ class drawgl:
         # Set the callback for mouse,
         glutMouseFunc(self.mouse)
         glutMotionFunc(self.mousemove)
-        self.mouse_pos = np.array([0.,0.])
+        self.mouse_pos  = np.array([0.,0.])
         # Load fragment shaders,
-        self.path      =  os.path.dirname(os.path.realpath(__file__))
+        self.path       =  os.path.dirname(os.path.realpath(__file__))
+        # Imgui settings,
+        renderer            = FixedPipelineRenderer()
+        io                  = imgui.get_io()
+        io.display_size     = self.res[0],self.res[1]
+        io.display_fb_scale = 1.,1.
+        io.delta_time       = 1.0/60
+    # Definition for handling menu of imgui,
+    def menu(self):
+        imgui.new_frame()
+        imgui.begin("Window!", True)
+        imgui.text("Thank you Anjul!")
+        imgui.end()
+        imgui.render()
     # Definition for handling mouse events,
     def mousemove(self,x,y):
         rot0                     =  np.array([
@@ -168,9 +185,12 @@ class drawgl:
             glLightfv(GL_LIGHT0, GL_POSITION, self.camera_pos)
     # Display definition,
     def display(self):
+        # Clearing the depth and color,
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
         # Set shade model,
         glShadeModel(self.surface)
+        # Imgui,
+        self.menu()
         # Wireframe or fill?
         glPolygonMode( GL_FRONT_AND_BACK, self.polygonmode )
         self.draw()
