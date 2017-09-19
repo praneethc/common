@@ -54,8 +54,8 @@ def rotmatz(angle):
 # Definition to rotate a given point,
 def rotatepoint(point,angles=[0,0,0]):
     rotx = rotmatx(angles[0])
-    roty = rotmatx(angles[1])
-    rotz = rotmatx(angles[2])
+    roty = rotmaty(angles[1])
+    rotz = rotmatz(angles[2])
     return np.dot(rotz,np.dot(roty,np.dot(rotx,point))),rotx,roty,rotz
 
 # Elem terefiş, kem gözlere şiş!

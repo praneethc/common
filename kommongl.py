@@ -45,7 +45,8 @@ class drawgl:
         # Set background color,
         glClearColor(0.0, 0.0, 0.0, 0.0)
         # Transparency settings,
-        if transparencyflag == True:
+        self.transparencyflag = transparencyflag
+        if self.transparencyflag == True:
             glEnable(GL_BLEND)
             glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA)
         # List of things to render,
@@ -102,29 +103,49 @@ class drawgl:
         io.display_size     = self.res[0],self.res[1]
         io.display_fb_scale = 1.,1.
         io.delta_time       = 1.0/60
+    # Definition to draw a gradient background,
+    def gradient(self):
+        glDisable(GL_DEPTH_TEST)
+        glMatrixMode(GL_PROJECTION)
+        glPushMatrix()
+        glLoadIdentity()
+
+        glMatrixMode(GL_MODELVIEW)
+        glLoadIdentity()
+        glDisable(GL_LIGHTING)
+
+        glBegin(GL_QUADS);
+        pos          = np.array([1.,1.])
+        glColor3f(0.,0.,1.)
+        glVertex2f(-pos[0],-pos[1])
+        glVertex2f( pos[0],-pos[1])
+
+        glColor3f(1.,1.,1.)
+        glVertex2f( pos[0], pos[1])
+        glVertex2f(-pos[0], pos[1])
+        glEnd()
+
+        glEnable(GL_DEPTH_TEST)
+        glMatrixMode(GL_PROJECTION)
+        glPopMatrix()
+        glMatrixMode(GL_MODELVIEW)
+
     # Definition for handling menu of imgui,
     def menu(self):
         imgui.new_frame()
-        imgui.begin("Window!", True)
-        imgui.text("Thank you Anjul!")
+        imgui.begin(self.title, True)
+        imgui.text("Ray tracer")
         imgui.end()
         imgui.render()
     # Definition for handling mouse events,
     def mousemove(self,x,y):
-        rot0                     =  np.array([
-                                              [1.,            0.,           0.],
-                                              [0.,  np.cos(np.radians(self.camera_rotation[1])), np.sin(np.radians(self.camera_rotation[1]))],
-                                              [0., -np.sin(np.radians(self.camera_rotation[1])), np.cos(np.radians(self.camera_rotation[1]))]
-                                             ])
-        rot1                     =  np.array([
-                                              [np.cos(np.radians(self.camera_rotation[0])), 0., np.sin(np.radians(self.camera_rotation[0]))],
-                                              [0.,            1.,           0.],
-                                              [-np.sin(np.radians(self.camera_rotation[0])), 0., np.cos(np.radians(self.camera_rotation[0]))]
-                                             ])
         diff                     = np.zeros((3))
-        diff[0:2]                = (self.mouse_pos - np.array([x,y]))*10./self.res
-        diff[1]                 *= -1
-        diff                     = np.dot(rot0,np.dot(rot1,diff))
+        diff[0:2]                = (self.mouse_pos - np.array([x,y]))*-10./self.res
+        diff,_,_,_               = rotatepoint(diff,[
+                                                     self.camera_rotation[0],
+                                                     self.camera_rotation[1],
+                                                     0
+                                                    ])
         diff                    *= self.camera_shift*(not self.camera_rot)
         self.camera_center      -= diff
         self.camera_pos         -= diff
@@ -137,7 +158,11 @@ class drawgl:
             rot_diff                 = (self.mouse_pos-np.array([x,y]))/10.
             self.camera_rotation    += np.array([-rot_diff[0],rot_diff[1]])
             pdiff                    = np.array([0.,0.,np.sqrt(np.sum(pdiff**2))])
-            self.camera_pos          = self.camera_center+np.dot(rot0,np.dot(rot1,pdiff))
+            self.camera_pos,_,_,_    = rotatepoint(pdiff,[self.camera_rotation[0],
+                                                          self.camera_rotation[1],
+                                                          0
+                                                         ])
+            self.camera_pos         += self.camera_center
         self.mouse_pos = np.array([x,y])
         self.compute_location()
     # Definition for handling mouse events,
@@ -158,16 +183,16 @@ class drawgl:
             self.compute_location()
     # Compute location,
     def compute_location(self):
-        d = sqrt(
-                 (self.camera_pos[0]-self.camera_center[0])**2+
-                 (self.camera_pos[1]-self.camera_center[1])**2+
-                 (self.camera_pos[2]-self.camera_center[2])**2
-                )
+        self.d = sqrt(
+                      (self.camera_pos[0]-self.camera_center[0])**2+
+                      (self.camera_pos[1]-self.camera_center[1])**2+
+                      (self.camera_pos[2]-self.camera_center[2])**2
+                     )
         # Set matrix mode,
         glMatrixMode(GL_PROJECTION)
         # Reset matrix,
         glLoadIdentity()
-        glFrustum(-d * 0.02, d * 0.02, -d * 0.02, d * 0.02, 1., 10*d)
+        glFrustum(-self.d * 0.02, self.d * 0.02, -self.d * 0.02, self.d * 0.02, 1., 10*self.d)
         # Set camera,
         gluLookAt(
                   self.camera_pos[0],
@@ -189,11 +214,14 @@ class drawgl:
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
         # Set shade model,
         glShadeModel(self.surface)
+        # Gradient background,
+        self.gradient()
         # Imgui,
         self.menu()
         # Wireframe or fill?
         glPolygonMode( GL_FRONT_AND_BACK, self.polygonmode )
         self.draw()
+        # Swap buffers,
         glutSwapBuffers()
     # Definition to pass the uniforms,
     def uniforms(self):
@@ -247,7 +275,7 @@ class drawgl:
             elif item[0] == 'plane':
                 self.plane(loc=item[2],size=item[3],angles=item[4],color=item[5])
     # Definition to add a ray to the rendering list,
-    def addray(self,p0,p1,id=0,color=[1.,0.,0.,0.],adddots=True):
+    def addray(self,p0,p1,id=0,color=[1.,0.,0.,0.5],adddots=True):
         self.items.append(['ray',id,p0,p1,color])
         if adddots == True:
             self.addsphere(id=id,loc=p1,lats=1,longs=1,r=0.1,color=color)
@@ -261,18 +289,18 @@ class drawgl:
             if p[id] < self.pmin[id]:
                self.pmin[id] = p[id]
     # Draw a ray,
-    def ray(self,p0=[0,0,0],p1=[10,10,10],color=[1.,0.,0.,0.]):
+    def ray(self,p0=[0,0,0],p1=[10,10,10],color=[1.,0.,0.,0.5]):
         glBegin(GL_LINES)
         glColor4f(color[0],color[1],color[2],color[3])
         glVertex3f(p0[0], p0[1], p0[2])
         glVertex3f(p1[0], p1[1], p1[2])
         glEnd()
     # Definition to add a sphere to the rendering list,
-    def addsphere(self,id=0,loc=[0,0,0],lats=10,longs=10,angs=[pi,pi],r=1.,color=[1.,0.,0.,0.]):
+    def addsphere(self,id=0,loc=[0,0,0],lats=10,longs=10,angs=[pi,pi],r=1.,color=[1.,0.,0.,0.5]):
         self.items.append(['sphere',id,loc,lats,longs,angs,r,color])
         self.maxmin(loc)
     # Draw a sphere,
-    def sphere(self,loc=[0,0,0],lats=10,longs=10,angs=[pi,pi],r=1.,color=[1.,0.,0.,0.]):
+    def sphere(self,loc=[0,0,0],lats=10,longs=10,angs=[pi,pi],r=1.,color=[1.,0.,0.,0.5]):
         for i in range(0, lats + 1):
             lat0 = angs[0] * (-0.5 + float(float(i - 1) / float(lats)))
             z0 = sin(lat0)*r
@@ -295,7 +323,7 @@ class drawgl:
                 glVertex3f(x * zr1+loc[0], y * zr1+loc[1], z1+loc[2])
             glEnd()
     # Definition to add a plane to the rendering list,
-    def addplane(self,loc,size,angles,id=0,color=[0.,1.,0.,0.]):
+    def addplane(self,loc,size,angles,id=0,color=[0.,0.1,0.,0.5]):
         self.items.append(['plane',id,loc,size,angles,color])
         loc = np.asarray(loc)
         self.maxmin(loc+size[0]/2.)
@@ -303,7 +331,7 @@ class drawgl:
         self.maxmin(loc-size[0]/2.)
         self.maxmin(loc-size[1]/2.)
     # Draw a plane.
-    def plane(self,loc=[0,0,0],size=[10.,10.],angles=[0.,0.,0.],color=[0.,0.1,0.,0.]):
+    def plane(self,loc=[0,0,0],size=[10.,10.],angles=[0.,0.,0.],color=[0.,0.1,0.,0.5]):
         glBegin(GL_QUADS)
         glColor4f(color[0],color[1],color[2],color[3])
         pos  = np.array([
@@ -319,7 +347,7 @@ class drawgl:
             glVertex3f(item[0],item[1],item[2])
         glEnd()
     # Definition to add a rectangular box to the rendering list,
-    def addbox(self,loc,angles,size,id=0,color=[0.,1.,0.,0.]):
+    def addbox(self,loc,angles,size,id=0,color=[0.,1.,0.,0.5]):
         self.items.append(['box',id,loc,angles,size,color])
         loc = np.asarray(loc)
         self.maxmin(loc+size[0]/2.)
@@ -329,7 +357,7 @@ class drawgl:
         self.maxmin(loc-size[1]/2.)
         self.maxmin(loc-size[2]/2.)
     # Draw a box.
-    def rectangularbox(self,loc=[0,0,0],angles=[0,0,0],size=[10.,20.,30.],color=[0.,1.,0.,0.]):
+    def rectangularbox(self,loc=[0,0,0],angles=[0,0,0],size=[10.,20.,30.],color=[0.,1.,0.,0.5]):
         width  = size[0]
         height = size[1]
         length = size[2]
