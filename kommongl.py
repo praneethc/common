@@ -31,6 +31,9 @@ class drawgl:
         self.loc   = np.asarray(loc)
         # Initialize the OpenGL pipeline,
         glutInit()
+        # Selected id for drawing.
+        self.selectedid  = False
+        self.maxid       = 0
         # Set the light flag,
         self.lightflag   = lightflag
         # Set the polygon mode: GL_FILL or GL_LINE,
@@ -56,13 +59,13 @@ class drawgl:
         # The surface type(Flat or Smooth),
         self.surface = GL_SMOOTH
         # Viewport settings,
-        self.camera_center   = np.array([0.,0.,0.])
-        self.camera_rotation = np.array([0.,0.])
-        self.camera_pos      = np.array([0.,0.1,10.])
-        self.camera_shift    = False
-        self.camera_rot      = False
-        self.pmax            = np.zeros((3))
-        self.pmin            = np.zeros((3))
+        self.camera_center    = np.array([0.,0.,0.])
+        self.camera_rotation  = np.array([180.,90.])
+        self.camera_pos       = np.array([0.,0.1,10.])
+        self.camera_shift     = False
+        self.camera_rot       = False
+        self.pmax             = np.zeros((3))
+        self.pmin             = np.zeros((3))
         # Compute viewport location,
         self.compute_location()
         # Set OpenGL parameters,
@@ -183,6 +186,7 @@ class drawgl:
             self.compute_location()
     # Compute location,
     def compute_location(self):
+        self.rotateviewport()
         self.d = sqrt(
                       (self.camera_pos[0]-self.camera_center[0])**2+
                       (self.camera_pos[1]-self.camera_center[1])**2+
@@ -231,24 +235,53 @@ class drawgl:
     def start(self):
         # Run the OpenGL main loop,
         self.camera_center  = (self.pmax+self.pmin)/2.
-        self.camera_pos    += self.camera_center
         if np.count_nonzero(self.pmax) == 0 :
             self.pmax = np.array([10.,10.,10.])
-        self.camera_pos[2]  = (np.amax(self.pmax[0:2])+np.abs(np.amin(self.pmin[0:2])))
+        self.camera_pos    += self.camera_center+np.zeros([3])
+        self.camera_pos[2]  = (np.amax(self.pmax[0:2])+np.abs(np.amin(self.pmin[0:2])))*0.7
         self.compute_location()
         glutMainLoop()
         return
+    # Definition to rotate the viewport.
+    def rotateviewport(self):
+        pdiff= np.array([
+                         self.camera_pos[0]-self.camera_center[0],
+                         self.camera_pos[1]-self.camera_center[1],
+                         self.camera_pos[2]-self.camera_center[2]
+                        ])
+        pdiff                 = np.array([0.,0.,np.sqrt(np.sum(pdiff**2))])
+        self.camera_pos,_,_,_ = rotatepoint(pdiff,[self.camera_rotation[0],
+                                                   self.camera_rotation[1],
+                                                   0.
+                                                  ])
+        self.camera_pos      += self.camera_center
+
     # Keyboard controller for the viewport,
     def keyboard(self, key, x, y):
         prompt('Pressed key: %s' % key,self.title)
+        if key == b'r':
+           self.selectedid += 1
+           self.selectedid %= self.maxid+1
+           print(self.selectedid)
+        if key == b'e':
+           self.selectedid = False
+           print(self.selectedid)
         if key == b'q':
            sys.exit()
+        if key == b'a':
+           self.camera_rotation[0] += 1
+        if key == b'z':
+           self.camera_rotation[0] -= 1
+        if key == b's':
+           self.camera_rotation[1] += 1
+        if key == b'x':
+           self.camera_rotation[1] -= 1
         self.compute_location()
         glutPostRedisplay()
     # The idle callback,
     def idle(self):
         time = glutGet(GLUT_ELAPSED_TIME)
-        if self.last_time == 0 or time >= self.last_time + 40:
+        if (self.last_time == 0) or( time >= self.last_time + 40):
             self.last_time = time
             glutPostRedisplay()
     # The visibility callback,
@@ -257,8 +290,15 @@ class drawgl:
             glutIdleFunc(self.idle)
         else:
             glutIdleFunc(None)
+    # Definition to draw a scene.
     def draw(self):
         for item in self.items:
+          if type(self.selectedid) == type(False):
+              self.drawprimitaves(item)
+          if item[1] == self.selectedid and type(self.selectedid) != type(False):
+              self.drawprimitaves(item)
+    # Definition for drawing primitive interpretation.
+    def drawprimitaves(self,item):
             if item[0] == 'sphere':
                 self.sphere(
                             loc=item[2],
@@ -281,6 +321,8 @@ class drawgl:
             self.addsphere(id=id,loc=p1,lats=1,longs=1,r=0.1,color=color)
         self.maxmin(p0)
         self.maxmin(p1)
+        if id > self.maxid:
+            self.maxid = id
     # Definition to update the maximum and minimum.
     def maxmin(self,p):
         for id in range(0,3):
@@ -299,6 +341,8 @@ class drawgl:
     def addsphere(self,id=0,loc=[0,0,0],lats=10,longs=10,angs=[pi,pi],r=1.,color=[1.,0.,0.,0.5]):
         self.items.append(['sphere',id,loc,lats,longs,angs,r,color])
         self.maxmin(loc)
+        if id > self.maxid:
+            self.maxid = id
     # Draw a sphere,
     def sphere(self,loc=[0,0,0],lats=10,longs=10,angs=[pi,pi],r=1.,color=[1.,0.,0.,0.5]):
         for i in range(0, lats + 1):
@@ -330,6 +374,8 @@ class drawgl:
         self.maxmin(loc+size[1]/2.)
         self.maxmin(loc-size[0]/2.)
         self.maxmin(loc-size[1]/2.)
+        if id > self.maxid:
+            self.maxid = id
     # Draw a plane.
     def plane(self,loc=[0,0,0],size=[10.,10.],angles=[0.,0.,0.],color=[0.,0.1,0.,0.5]):
         glBegin(GL_QUADS)
@@ -356,6 +402,8 @@ class drawgl:
         self.maxmin(loc-size[0]/2.)
         self.maxmin(loc-size[1]/2.)
         self.maxmin(loc-size[2]/2.)
+        if id > self.maxid:
+            self.maxid = id
     # Draw a box.
     def rectangularbox(self,loc=[0,0,0],angles=[0,0,0],size=[10.,20.,30.],color=[0.,1.,0.,0.5]):
         width  = size[0]
