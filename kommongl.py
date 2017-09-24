@@ -14,7 +14,6 @@ try:
 except:
     prompt("OpenGL wrapper and Imgui for python not found",title='OpenGL')
     sys.exit()
-#print(dir(imgui.integrations.opengl));sys.exit()
 
 __author__  = ('Kaan Akşit')
 __version__ = '0.1'
@@ -262,10 +261,8 @@ class drawgl:
         if key == b'r':
            self.selectedid += 1
            self.selectedid %= self.maxid+1
-           print(self.selectedid)
         if key == b'e':
            self.selectedid = False
-           print(self.selectedid)
         if key == b'q':
            sys.exit()
         if key == b'a':
