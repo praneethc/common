@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 
 import sys
+import json
 import numpy as np
 from datetime import datetime
 
@@ -11,6 +12,15 @@ __version__ = '0.1'
 # Definition to prompt.
 def prompt(txt,title='COMMON'):
     print('[%s] [%s] %s' % (str(datetime.now()),title,txt))
+
+# Definition to save dictionary.
+def savedict(dict,fn='./dictionary.txt'):
+    json.dump(d, open("text.txt",'w'))
+    return True
+
+# Definition to load dictionary.
+def loaddict(fn='./dictionary.txt'):
+    return json.load(open(fn))
 
 # Definition to generate a plane perpendicular to Z axis.
 def generateplane(point,angles=[0.,0.,0.]):
