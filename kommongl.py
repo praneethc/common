@@ -144,8 +144,8 @@ class drawgl:
         diff                     = np.zeros((3))
         diff[0:2]                = (self.mouse_pos - np.array([x,y]))*-10./self.res
         diff,_,_,_               = rotatepoint(diff,[
-                                                     self.camera_rotation[0],
                                                      self.camera_rotation[1],
+                                                     self.camera_rotation[0],
                                                      0
                                                     ])
         diff                    *= self.camera_shift*(not self.camera_rot)
