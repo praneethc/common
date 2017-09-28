@@ -68,6 +68,21 @@ def rotatepoint(point,angles=[0,0,0]):
     rotz = rotmatz(angles[2])
     return np.dot(rotz,np.dot(roty,np.dot(rotx,point))),rotx,roty,rotz
 
+# Sample a circular aperture.
+def samplecircular(no,aperture,loc=[0.,0.,0.],angles=[0.,0.,0.]):
+    points = []
+    for idx in range(0,no[0]):
+        for idy in range(0,no[1]):
+            point        = np.array([
+                                     idy*aperture[0]/2/no[1]*np.cos(2*np.pi*idx/no[0]),
+                                     idy*aperture[1]/2/no[1]*np.sin(2*np.pi*idx/no[0]),
+                                     0.
+                                    ])
+            point       += loc
+            point,_,_,_  = rotatepoint(point,angles=angles)
+            points.append(point)
+    return points
+
 # Elem terefiş, kem gözlere şiş!
 if __name__ == '__main__':
     pass
