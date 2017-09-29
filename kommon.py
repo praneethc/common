@@ -68,7 +68,7 @@ def rotatepoint(point,angles=[0,0,0]):
     rotz = rotmatz(angles[2])
     return np.dot(rotz,np.dot(roty,np.dot(rotx,point))),rotx,roty,rotz
 
-# Sample a circular aperture.
+# Sample a circular aperture,
 def samplecircular(no,aperture,loc=[0.,0.,0.],angles=[0.,0.,0.]):
     points = []
     for idx in range(0,no[0]):
@@ -82,6 +82,25 @@ def samplecircular(no,aperture,loc=[0.,0.,0.],angles=[0.,0.,0.]):
             point,_,_,_  = rotatepoint(point,angles=angles)
             points.append(point)
     return points
+
+# Define sphere for Odak,
+def definesphere(var):
+    return np.array([
+                      var["location"][0],
+                      var["location"][1],
+                      var["location"][2],
+                      var["curvature"],
+                     ])
+
+# Definition for an intersection chooser for Odak,
+def intersect(ray,vec,surface):
+    if surface["type"] == "sphere":
+        ball  = definesphere(surface)
+        return ray.findinterspher(vec,ball)
+    if  surface["type"] == "plane":
+        plane = generateplane(surface["location"],angles=surface["angles"])
+        return ray.findintersurface(vec,(plane[0],plane[1],plane[2]))
+    self.prompt("Surface wasn't identified by intersect definition, terminating...")
 
 # Elem terefiş, kem gözlere şiş!
 if __name__ == '__main__':
