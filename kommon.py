@@ -78,8 +78,8 @@ def samplecircular(no,aperture,loc=[0.,0.,0.],angles=[0.,0.,0.]):
                                      idy*aperture[1]/2/no[1]*np.sin(2*np.pi*idx/no[0]),
                                      0.
                                     ])
-            point       += loc
             point,_,_,_  = rotatepoint(point,angles=angles)
+            point       += loc
             points.append(point)
     return points
 
