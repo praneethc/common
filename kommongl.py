@@ -237,7 +237,7 @@ class drawgl:
         if np.count_nonzero(self.pmax) == 0 :
             self.pmax = np.array([10.,10.,10.])
         self.camera_pos    += self.camera_center+np.zeros([3])
-        self.camera_pos[2]  = (np.amax(self.pmax[0:2])+np.abs(np.amin(self.pmin[0:2])))*0.7
+        self.camera_pos[2]  = (np.amax(self.pmax[0:2])+np.abs(np.amin(self.pmin[0:2])))*2.
         self.compute_location()
         glutMainLoop()
         return

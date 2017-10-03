@@ -83,6 +83,22 @@ def samplecircular(no,aperture,loc=[0.,0.,0.],angles=[0.,0.,0.]):
             points.append(point)
     return points
 
+
+# Sample a planar aperture,
+def sampleplanar(no,aperture,loc=[0.,0.,0.],angles=[0.,0.,0.]):
+    points = []
+    for idx in range(0,no[0]):
+        for idy in range(0,no[1]):
+            point        = np.array([
+                                     -aperture[0]/2+idx*aperture[0]/no[0]+aperture[0]/no[0]/2.,
+                                     -aperture[1]/2+idy*aperture[1]/no[1]+aperture[1]/no[1]/2.,
+                                     0.
+                                    ])
+            point,_,_,_  = rotatepoint(point,angles=angles)
+            point       += loc
+            points.append(point)
+    return points
+
 # Define sphere for Odak,
 def definesphere(var):
     return np.array([
