@@ -124,14 +124,24 @@ def gauss_kern(size, sizey=None):
         sizey = size
     else:
         sizey = int(sizey)
-    #print size, sizey,
     x, y = np.mgrid[-size:size, -sizey:sizey]
     r    = size*8/4
     ry   = sizey*8/4
     g    = np.exp(-(x**2/float(r)+y**2/float(ry)))
     l    = g[size/2:size*3/2,size/2:size*3/2]
-    print l.shape
     return l / l.sum()
+
+# Definition to normalize a given data.
+def normalize(data,k=1):
+    result = abs(data)*1.
+#    result = data.astype(float)
+    if np.amax(result) == np.amin(result):
+        if np.amax(result) != 0:
+            return result/np.amax(result)*k
+        elif np.amax(result) == 0:
+            return result
+    result -= np.amin(result)
+    return result/np.amax(result)*k
 
 # Elem terefiş, kem gözlere şiş!
 if __name__ == '__main__':
