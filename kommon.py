@@ -118,7 +118,8 @@ def intersect(ray,vec,surface):
         return ray.findintersurface(vec,(plane[0],plane[1],plane[2]))
     self.prompt("Surface wasn't identified by intersect definition, terminating...")
 
-def gauss_kern(size, sizey=None):
+# Definition to generate gaussian kernel,
+def gaussian_kernel(size, sizey=None):
     size = int(size)
     if not sizey:
         sizey = size
