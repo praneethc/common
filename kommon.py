@@ -118,6 +118,21 @@ def intersect(ray,vec,surface):
         return ray.findintersurface(vec,(plane[0],plane[1],plane[2]))
     self.prompt("Surface wasn't identified by intersect definition, terminating...")
 
+def gauss_kern(size, sizey=None):
+    size = int(size)
+    if not sizey:
+        sizey = size
+    else:
+        sizey = int(sizey)
+    #print size, sizey,
+    x, y = np.mgrid[-size:size, -sizey:sizey]
+    r    = size*8/4
+    ry   = sizey*8/4
+    g    = np.exp(-(x**2/float(r)+y**2/float(ry)))
+    l    = g[size/2:size*3/2,size/2:size*3/2]
+    print l.shape
+    return l / l.sum()
+
 # Elem terefiş, kem gözlere şiş!
 if __name__ == '__main__':
     pass
