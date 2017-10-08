@@ -144,6 +144,22 @@ def normalize(data,k=1):
     result -= np.amin(result)
     return result/np.amax(result)*k
 
+def convolve_images(Input1,Input2,ResultFilename='ConvolutionResult.png'):
+    # Reading the input from the file.
+    img1  = scipy.misc.imread(Input1)
+    # Reading the input from the file.
+    img2  = scipy.misc.imread(Input2)
+    # Array to store the result of the convolution.
+    result = np.zeros(img1.shape)
+    # Convolving the image for each color channel.
+    for m in xrange(0,3):
+        result[:,:,m] = fftshift(ifft2(fft2(img1[:,:,m])*fft2(img2[:,:,m])).real)
+    # Normalizing the output.
+    result = result/np.amax(result)
+    # Storing the result as a file.
+    scipy.misc.imsave(ResultFilename,result)
+    return result
+
 # Elem terefiş, kem gözlere şiş!
 if __name__ == '__main__':
     pass
