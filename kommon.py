@@ -129,7 +129,7 @@ def gaussian_kernel(size, sizey=None):
     r    = size*8/4
     ry   = sizey*8/4
     g    = np.exp(-(x**2/float(r)+y**2/float(ry)))
-    l    = g[size/2:size*3/2,size/2:size*3/2]
+    l    = g[int(size/2.):int(size*3./2),int(size/2.):int(size*3./2)]
     return l / l.sum()
 
 # Definition to normalize a given data.
