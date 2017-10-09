@@ -21,22 +21,19 @@ class server():
        return self.socket.close()
 
 class client():
-   def __init__(self,ip,port,topics,timeout=10):
+   def __init__(self,ip,port,topics):
        self.ip      = ip
        self.port    = port
-       self.timeout = timeout
        self.topics  = topics
        self.context = zmq.Context()
        self.socket  = self.context.socket(zmq.SUB)
        self.socket.connect("tcp://%s:%s" % (ip,port))
        self.subscribe(self.topics)
-       self.socket.setsockopt(zmq.RCVTIMEO, self.timeout)
-       self.socket.setsockopt(zmq.LINGER, 0)
    def subscribe(self,topics):
        self.socket.setsockopt_string(zmq.SUBSCRIBE, topics)
        return True
    def receive(self):
-       self.string              = self.socket.recv(flags=zmq.NOBLOCK)
+       self.string              = self.socket.recv()
        self.topic, self.message = self.string.split()
        return self.topic, self.message
    def close(self):

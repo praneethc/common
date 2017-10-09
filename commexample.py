@@ -1,7 +1,7 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
 
-import sys,socket,time
+import sys,socket,time,_thread
 from kommon import *
 import kommoncon
 
@@ -23,23 +23,25 @@ def main(port="1234",title="CHAT"):
     prompt("Server started!",title=title)
     prompt("Press s key to send message.",title=title)
     prompt("Press q key to exit the application.", title=title)
+    _thread.start_new_thread(read,(client,title,))
     while True:
        key = getch()
        if (key == 's'):
-           message = input("Type message: ")
-           message = '%s:%s' % (nick,message)
-           server.send("all",message)
+           message  = input("Type message: ")
+           send_msg = '%s -- %s' % (nick,message)
+           server.send("all",send_msg)
            prompt("Message sent: %s" % message, title=title)
        elif (key == 'q'):
+           server.close()
+           client.close()
            sys.exit()
-       try:
-           topic,msg = client.receive()
-           prompt("Message received : %s" %msg, title=title)
-       except:
-           pass
-    server.close()
-    client.close()
     return True
+
+def read(client,title):
+    while True:
+        topic,msg = client.receive()
+        prompt("Message received : %s" %msg, title=title)
+
 
 # Elem terefiş, kem gözlere şiş!
 if __name__ == '__main__':
