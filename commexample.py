@@ -32,9 +32,9 @@ def main(port="1234",title="CHAT"):
            server.send("all",send_msg)
            prompt("Message sent: %s" % message, title=title)
        elif (key == 'q'):
+           sys.exit()
            server.close()
            client.close()
-           sys.exit()
     return True
 
 def read(client,title):

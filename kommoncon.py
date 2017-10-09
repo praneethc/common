@@ -33,9 +33,13 @@ class client():
        self.socket.setsockopt_string(zmq.SUBSCRIBE, topics)
        return True
    def receive(self):
-       self.string              = self.socket.recv()
-       self.topic, self.message = self.string.split()
-       return self.topic, self.message
+       self.string  = self.socket.recv()
+       cache        = self.string.split()
+       self.topic   = cache[0]
+       self.message = []
+       for id in range(1,len(cache)):
+           self.message.append(cache[id].decode("utf-8"))
+       return self.topic, ' '.join(self.message)
    def close(self):
        return self.socket.close()
 
