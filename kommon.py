@@ -3,6 +3,7 @@
 
 import sys
 import json
+import termios, tty
 import numpy as np
 from datetime import datetime
 
@@ -159,6 +160,18 @@ def convolve_images(Input1,Input2,ResultFilename='ConvolutionResult.png'):
     # Storing the result as a file.
     scipy.misc.imsave(ResultFilename,result)
     return result
+
+# Definition to get keypress from a shell,
+# Taken from http://www.jonwitts.co.uk/archives/896
+def getch():
+    fd = sys.stdin.fileno()
+    old_settings = termios.tcgetattr(fd)
+    try:
+        tty.setraw(sys.stdin.fileno())
+        ch = sys.stdin.read(1)
+    finally:
+        termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
+    return ch
 
 # Elem terefiş, kem gözlere şiş!
 if __name__ == '__main__':
