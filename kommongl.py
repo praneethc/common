@@ -8,11 +8,12 @@ try:
     from OpenGL.GL import *
     from OpenGL.GLU import *
     from OpenGL.GLUT import *
+    import openvr
     import imgui
     import imgui.integrations.opengl
     from imgui.integrations.opengl import ProgrammablePipelineRenderer,FixedPipelineRenderer
 except:
-    prompt("OpenGL wrapper and Imgui for python not found",title='OpenGL')
+    prompt("OpenGL wrapper, Imgui or OpenVR for python not found",title='OpenGL')
     sys.exit()
 
 __author__  = ('Kaan Akşit')
@@ -22,7 +23,7 @@ __version__ = '0.1'
 # Class for drawing using OpenGL.
 class drawgl:
     # Constructor for the class
-    def __init__(self,res=[1000,1000],loc=[0,0],title='OpenGL',lightflag=True,transparencyflag=True):
+    def __init__(self,res=[1000,1000],loc=[0,0],title='OpenGL',lightflag=True,transparencyflag=True,vrflag=False):
         # Title of the window,
         self.title = title
         # Resolution and location,
@@ -40,6 +41,12 @@ class drawgl:
         # Set OpenGL display mode,
         glutInitDisplayMode(GLUT_RGB | GLUT_DOUBLE | GLUT_DEPTH)
         # Set the Window size and position,
+        self.vrflag         = vrflag
+        if self.vrflag == True:
+            self.vr_system = openvr.init(openvr.VRApplication_Scene)
+            self.vr_width, self.vr_height = self.vr_system.getRecommendedRenderTargetSize()
+            self.res[0]                   = self.vr_width
+            self.res[1]                   = self.vr_height
         glutInitWindowSize(self.res[0],self.res[1])
         glutInitWindowPosition(self.loc[0],self.loc[1])
         # Create the window with given title,
@@ -105,6 +112,75 @@ class drawgl:
         io.display_size     = self.res[0],self.res[1]
         io.display_fb_scale = 1.,1.
         io.delta_time       = 1.0/60
+        # OpenVR for near eye display support,
+        if self.vrflag == True:
+            self.vr_system = openvr.init(openvr.VRApplication_Scene)
+            self.vr_width, self.vr_height = self.vr_system.getRecommendedRenderTargetSize()
+            self.compositor = openvr.VRCompositor()
+            if self.compositor is None:
+                raise Exception("Unable to create compositor")
+            poses_t = openvr.TrackedDevicePose_t * openvr.k_unMaxTrackedDeviceCount
+            self.poses = poses_t()
+            # Set up framebuffer and render textures
+            self.fbl = glGenFramebuffers(1)
+            glBindFramebuffer(GL_FRAMEBUFFER, self.fbl)
+            self.depth_bufferl = glGenRenderbuffers(1)
+            glBindRenderbuffer(GL_RENDERBUFFER, self.depth_bufferl)
+            glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8, self.vr_width, self.vr_height)
+            glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_RENDERBUFFER, self.depth_bufferl)
+            self.texture_id_l = glGenTextures(1)
+            glBindTexture(GL_TEXTURE_2D, self.texture_id_l)
+            glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, self.vr_width, self.vr_height, 0, GL_RGBA, GL_UNSIGNED_BYTE, None)
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR)
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR)
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE)
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE)
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, 0)
+            glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, self.texture_id_l, 0)
+            status = glCheckFramebufferStatus(GL_FRAMEBUFFER)
+            if status != GL_FRAMEBUFFER_COMPLETE:
+                glBindFramebuffer(GL_FRAMEBUFFER, 0)
+                raise Exception("Incomplete framebuffer")
+            glBindFramebuffer(GL_FRAMEBUFFER, 0)
+            self.fbr = glGenFramebuffers(1)
+            glBindFramebuffer(GL_FRAMEBUFFER, self.fbr)
+            self.depth_bufferr = glGenRenderbuffers(1)
+            glBindRenderbuffer(GL_RENDERBUFFER, self.depth_bufferr)
+            glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8, self.vr_width, self.vr_height)
+            glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_RENDERBUFFER, self.depth_bufferr)
+            self.texture_id_r = glGenTextures(1)
+            glBindTexture(GL_TEXTURE_2D, self.texture_id_r)
+            glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, self.vr_width, self.vr_height, 0, GL_RGBA, GL_UNSIGNED_BYTE, None)
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR)
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR)
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE)
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE)
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, 0)
+            glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, self.texture_id_r, 0)
+            status = glCheckFramebufferStatus(GL_FRAMEBUFFER)
+            glBindFramebuffer(GL_FRAMEBUFFER, 0)
+            if status != GL_FRAMEBUFFER_COMPLETE:
+                glBindFramebuffer(GL_FRAMEBUFFER, 0)
+                raise Exception("Incomplete framebuffer")
+            glBindFramebuffer(GL_FRAMEBUFFER, 0)
+            # OpenVR texture data
+            self.texturel             = openvr.Texture_t()
+            self.texturel.handle      = self.texture_id_l
+            self.texturel.eType       = openvr.TextureType_OpenGL
+            self.texturel.eColorSpace = openvr.ColorSpace_Gamma
+            self.texturer             = openvr.Texture_t()
+            self.texturer.handle      = self.texture_id_r
+            self.texturer.eType       = openvr.TextureType_OpenGL
+            self.texturer.eColorSpace = openvr.ColorSpace_Gamma
+    def __exit__(self, type_arg, value, traceback):
+        if self.vr_system is not None:
+            openvr.shutdown
+            self.vr_system = None
+        if self.vrflag == True:
+            glDeleteTextures([self.texture_id])
+            glDeleteRenderbuffers([self.depth_buffer])
+            glDeleteFramebuffers([self.fb])
+            self.fb = 0
     # Definition to draw a gradient background,
     def gradient(self):
         glDisable(GL_DEPTH_TEST)
@@ -217,7 +293,6 @@ class drawgl:
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
         # Set shade model,
         glShadeModel(self.surface)
-        # Gradient background,
         self.gradient()
         # Imgui,
         self.menu()
@@ -226,6 +301,22 @@ class drawgl:
         self.draw()
         # Swap buffers,
         glutSwapBuffers()
+        #  For VR support,
+        if self.vrflag == True:
+            self.compositor.waitGetPoses(self.poses, openvr.k_unMaxTrackedDeviceCount, None, 0)
+            hmd_pose0 = self.poses[openvr.k_unTrackedDeviceIndex_Hmd]
+            if not hmd_pose0.bPoseIsValid:
+                return
+            print(hmd_pose0.mDeviceToAbsoluteTracking)
+            glBindFramebuffer(GL_FRAMEBUFFER, self.fbl)
+            self.gradient()
+            self.draw()
+            glBindFramebuffer(GL_FRAMEBUFFER, self.fbr)
+            self.draw()
+            glBindFramebuffer(GL_FRAMEBUFFER, 0)
+            self.compositor.submit(openvr.Eye_Left, self.texturel)
+            self.compositor.submit(openvr.Eye_Right, self.texturer)
+            glBindFramebuffer(GL_FRAMEBUFFER, 0)
     # Definition to pass the uniforms,
     def uniforms(self):
         uniform0 = glGetUniformLocation(self.program0, "alpha")
