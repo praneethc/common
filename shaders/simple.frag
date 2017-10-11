@@ -13,8 +13,6 @@ uniform float alpha;
 //main shader
 void main(void)
 {
-    out_color         = f_color;
-//    out_color         = gl_FragColor;
-    out_color.w       = alpha;
+    out_color = f_color;
 }
 

@@ -1,12 +1,16 @@
 in vec2 vertexUV;
 
+uniform mat4 MVP;
+
 varying out vec4 f_color;
 varying out vec2 UV;
 
 void main()
 {
     f_color     = gl_Color;
-    gl_Position = gl_ModelViewProjectionMatrix * gl_Vertex;
+//    gl_Position = gl_ModelViewProjectionMatrix * gl_Vertex;
+    gl_Position = MVP * gl_Vertex;
+//    gl_Position = gl_ModelViewProjectionMatrix * MVP * gl_Vertex;
     UV          = vertexUV;
 }
 

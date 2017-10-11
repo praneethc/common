@@ -4,6 +4,8 @@
 from math import *
 from kommon import *
 import numpy as np
+from scipy import linalg
+import ast
 try:
     from OpenGL.GL import *
     from OpenGL.GLU import *
@@ -41,10 +43,14 @@ class drawgl:
         # Set OpenGL display mode,
         glutInitDisplayMode(GLUT_RGB | GLUT_DOUBLE | GLUT_DEPTH)
         # Set the Window size and position,
-        self.vrflag         = vrflag
+        self.vrflag      = vrflag
         if self.vrflag == True:
             self.vr_system = openvr.init(openvr.VRApplication_Scene)
             self.vr_width, self.vr_height = self.vr_system.getRecommendedRenderTargetSize()
+            self.compositor = openvr.VRCompositor()
+            if self.compositor is None:
+                self.vrflag = False
+                raise Exception("Unable to create compositor")
             self.res[0]                   = self.vr_width
             self.res[1]                   = self.vr_height
         glutInitWindowSize(self.res[0],self.res[1])
@@ -63,7 +69,7 @@ class drawgl:
         # Timer variable,
         self.last_time = 0
         # The surface type(Flat or Smooth),
-        self.surface = GL_SMOOTH
+        self.surface          = GL_SMOOTH
         # Viewport settings,
         self.camera_center    = np.array([0.,0.,0.])
         self.camera_rotation  = np.array([180.,90.])
@@ -79,7 +85,7 @@ class drawgl:
         # Light settings,
         if self.lightflag == True:
             # Intensity of light,
-            self.intensity = [0.7, 0.7, 0.7, 1.0]
+            self.intensity         = [0.7, 0.7, 0.7, 1.0]
             # Intensity of ambient light,
             self.ambient_intensity = [0.3, 0.3, 0.3, 1.0]
             # Enable lighting,
@@ -105,8 +111,19 @@ class drawgl:
         glutMotionFunc(self.mousemove)
         self.mouse_pos  = np.array([0.,0.])
         # Load fragment shaders,
-        self.path       =  os.path.dirname(os.path.realpath(__file__))
-        # Imgui settings,
+        self.path           =  os.path.dirname(os.path.realpath(__file__))
+        fn                  = '%s/shaders/simple.frag' % os.path.dirname(os.path.realpath(__file__))
+        self.program        = self.LoadShader(shaderloc=fn,both=True)
+        glUseProgram(self.program)
+        self.mvp            = glGetUniformLocation(self.program, 'MVP')
+        self.projmat        = np.array([
+                                        [1.,0.,0.,0.],
+                                        [0.,1.,0.,0.],
+                                        [0.,0.,1.,0.],
+                                        [0.,0.,0.,1.]
+                                       ],np.float32)
+        glUniformMatrix4fv(self.mvp, 1, GL_FALSE, self.projmat)
+       # Imgui settings,
         renderer            = FixedPipelineRenderer()
         io                  = imgui.get_io()
         io.display_size     = self.res[0],self.res[1]
@@ -114,11 +131,6 @@ class drawgl:
         io.delta_time       = 1.0/60
         # OpenVR for near eye display support,
         if self.vrflag == True:
-            self.vr_system = openvr.init(openvr.VRApplication_Scene)
-            self.vr_width, self.vr_height = self.vr_system.getRecommendedRenderTargetSize()
-            self.compositor = openvr.VRCompositor()
-            if self.compositor is None:
-                raise Exception("Unable to create compositor")
             poses_t = openvr.TrackedDevicePose_t * openvr.k_unMaxTrackedDeviceCount
             self.poses = poses_t()
             # Set up framebuffer and render textures
@@ -271,7 +283,7 @@ class drawgl:
         glMatrixMode(GL_PROJECTION)
         # Reset matrix,
         glLoadIdentity()
-        glFrustum(-self.d * 0.02, self.d * 0.02, -self.d * 0.02, self.d * 0.02, 1., 10*self.d)
+        glFrustum(-self.d * 0.02, self.d * 0.02, -self.d * 0.02, self.d * 0.01, 1., 100*self.d)
         # Set camera,
         gluLookAt(
                   self.camera_pos[0],
@@ -289,38 +301,45 @@ class drawgl:
             glLightfv(GL_LIGHT0, GL_POSITION, self.camera_pos)
     # Display definition,
     def display(self):
-        # Clearing the depth and color,
-        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
-        # Set shade model,
-        glShadeModel(self.surface)
-        self.gradient()
-        # Imgui,
-        self.menu()
-        # Wireframe or fill?
-        glPolygonMode( GL_FRONT_AND_BACK, self.polygonmode )
-        self.draw()
-        # Swap buffers,
-        glutSwapBuffers()
         #  For VR support,
         if self.vrflag == True:
+            glUseProgram(self.program)
             self.compositor.waitGetPoses(self.poses, openvr.k_unMaxTrackedDeviceCount, None, 0)
             hmd_pose0 = self.poses[openvr.k_unTrackedDeviceIndex_Hmd]
-            if not hmd_pose0.bPoseIsValid:
-                return
-            print(hmd_pose0.mDeviceToAbsoluteTracking)
-            glBindFramebuffer(GL_FRAMEBUFFER, self.fbl)
-            self.gradient()
-            self.draw()
-            glBindFramebuffer(GL_FRAMEBUFFER, self.fbr)
-            self.draw()
-            glBindFramebuffer(GL_FRAMEBUFFER, 0)
+            if hmd_pose0.bPoseIsValid:
+                mat             = hmd_pose0.mDeviceToAbsoluteTracking
+                mat             = mat.__str__()
+                mat             = np.array(ast.literal_eval(mat))
+                cache           = np.zeros((4,4))
+                cache[3][3]     = 1
+                cache[0:3,:]    = np.copy(mat)
+#                self.pose       = cache
+                self.pose       = np.linalg.inv(cache)
+                glUniformMatrix4fv(self.mvp, 1, GL_FALSE, self.pose)
+            for framebuffer in [self.fbl,self.fbr]:
+                glBindFramebuffer(GL_FRAMEBUFFER, framebuffer)
+                glClearColor(0.0, 0.0, 0.0, 0)
+                glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
+                glShadeModel(self.surface)
+                self.gradient()
+                self.draw()
+                glBindFramebuffer(GL_FRAMEBUFFER, 0)
             self.compositor.submit(openvr.Eye_Left, self.texturel)
             self.compositor.submit(openvr.Eye_Right, self.texturer)
             glBindFramebuffer(GL_FRAMEBUFFER, 0)
-    # Definition to pass the uniforms,
-    def uniforms(self):
-        uniform0 = glGetUniformLocation(self.program0, "alpha")
-        glUniform1f(uniform0,float(self.alpha))
+        if True:
+            # Clearing the depth and color,
+            glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
+            # Set shade model,
+            glShadeModel(self.surface)
+            self.gradient()
+            # Imgui,
+            self.menu()
+            # Wireframe or fill?
+            glPolygonMode( GL_FRONT_AND_BACK, self.polygonmode )
+            self.draw()
+            # Swap buffers,
+            glutSwapBuffers()
     # Start displaying,
     def start(self):
         # Run the OpenGL main loop,
@@ -540,7 +559,26 @@ class drawgl:
             glVertex3f(item[0],item[1],item[2])
 
         glEnd()
-
+    def LoadShader(self,shaderloc='./shaders/simple.frag',ShadersType=GL_FRAGMENT_SHADER,both=False,color=None):
+        prompt('Shader status: Loading...')
+        # Load shader as a string.
+        source  = open(shaderloc,'r').read()
+        shader  = glCreateShader(ShadersType)
+        glShaderSource(shader,source)
+        glCompileShader(shader)
+        if both == True:
+             sourcev  = open(shaderloc.replace('frag','vertex'),'r').read()
+             shaderv  = glCreateShader(GL_VERTEX_SHADER)
+             glShaderSource(shaderv,sourcev)
+             glCompileShader(shaderv)
+        # Definition to load shader, GL_VERTEX_SHADER, GL_FRAGMENT_SHADER.
+        program = glCreateProgram()
+        glAttachShader(program, shader)
+        if both == True:
+             glAttachShader(program, shaderv)
+        glLinkProgram(program)
+        prompt('Shader status: %s' % str(glGetProgramInfoLog(program)))
+        return program
 
 # Elem terefiş, kem gözlere şiş!
 if __name__ == '__main__':
