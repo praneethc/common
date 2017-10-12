@@ -22,6 +22,22 @@ __author__  = ('Kaan Akşit')
 __version__ = '0.1'
 
 
+def matrixForOpenVrMatrix(mat):
+    if len(mat.m) == 4: # HmdMatrix44_t?
+        result = np.matrix(
+                           ((mat.m[0][0], mat.m[1][0], mat.m[2][0], mat.m[3][0]),
+                            (mat.m[0][1], mat.m[1][1], mat.m[2][1], mat.m[3][1]),
+                            (mat.m[0][2], mat.m[1][2], mat.m[2][2], mat.m[3][2]),
+                            (mat.m[0][3], mat.m[1][3], mat.m[2][3], mat.m[3][3]),), np.float32)
+        return result
+    elif len(mat.m) == 3: # HmdMatrix34_t?
+        result = np.matrix(
+                           ((mat.m[0][0], mat.m[1][0], mat.m[2][0], 0.0),
+                            (mat.m[0][1], mat.m[1][1], mat.m[2][1], 0.0),
+                            (mat.m[0][2], mat.m[1][2], mat.m[2][2], 0.0),
+                            (mat.m[0][3], mat.m[1][3], mat.m[2][3], 1.0),), np.float32)
+        return result
+
 # Class for drawing using OpenGL.
 class drawgl:
     # Constructor for the class
@@ -123,7 +139,7 @@ class drawgl:
                                         [0.,0.,0.,1.]
                                        ],np.float32)
         glUniformMatrix4fv(self.mvp, 1, GL_FALSE, self.projmat)
-       # Imgui settings,
+        # Imgui settings,
         renderer            = FixedPipelineRenderer()
         io                  = imgui.get_io()
         io.display_size     = self.res[0],self.res[1]
@@ -175,7 +191,7 @@ class drawgl:
                 glBindFramebuffer(GL_FRAMEBUFFER, 0)
                 raise Exception("Incomplete framebuffer")
             glBindFramebuffer(GL_FRAMEBUFFER, 0)
-            # OpenVR texture data
+            # OpenVR texture data,
             self.texturel             = openvr.Texture_t()
             self.texturel.handle      = self.texture_id_l
             self.texturel.eType       = openvr.TextureType_OpenGL
@@ -184,6 +200,18 @@ class drawgl:
             self.texturer.handle      = self.texture_id_r
             self.texturer.eType       = openvr.TextureType_OpenGL
             self.texturer.eColorSpace = openvr.ColorSpace_Gamma
+            self.texture              = [self.texturel,self.texturer]
+            self.eyes                 = [openvr.Eye_Left,openvr.Eye_Right]
+            # Compute projection matrix
+            zNear = 0.2
+            zFar = 500.0
+            self.view = []
+            self.projection = []
+            self.projection.append(np.asarray(matrixForOpenVrMatrix(self.vr_system.getProjectionMatrix(openvr.Eye_Left, zNear, zFar))))
+            self.projection.append(np.asarray(matrixForOpenVrMatrix(self.vr_system.getProjectionMatrix(openvr.Eye_Right, zNear, zFar))))
+            self.view.append(matrixForOpenVrMatrix(self.vr_system.getEyeToHeadTransform(openvr.Eye_Left)).I)
+            self.view.append(matrixForOpenVrMatrix(self.vr_system.getEyeToHeadTransform(openvr.Eye_Right)).I)
+    # Definition to exit class,
     def __exit__(self, type_arg, value, traceback):
         if self.vr_system is not None:
             openvr.shutdown
@@ -283,7 +311,7 @@ class drawgl:
         glMatrixMode(GL_PROJECTION)
         # Reset matrix,
         glLoadIdentity()
-        glFrustum(-self.d * 0.02, self.d * 0.02, -self.d * 0.02, self.d * 0.01, 1., 100*self.d)
+        glFrustum(-self.d * 0.02, self.d * 0.02, -self.d * 0.02, self.d * 0.01, 1., 1000*self.d)
         # Set camera,
         gluLookAt(
                   self.camera_pos[0],
@@ -303,31 +331,26 @@ class drawgl:
     def display(self):
         #  For VR support,
         if self.vrflag == True:
+            glBindFramebuffer(GL_FRAMEBUFFER, 0)
             glUseProgram(self.program)
             self.compositor.waitGetPoses(self.poses, openvr.k_unMaxTrackedDeviceCount, None, 0)
             hmd_pose0 = self.poses[openvr.k_unTrackedDeviceIndex_Hmd]
             if hmd_pose0.bPoseIsValid:
                 mat             = hmd_pose0.mDeviceToAbsoluteTracking
-                mat             = mat.__str__()
-                mat             = np.array(ast.literal_eval(mat))
-                cache           = np.zeros((4,4))
-                cache[3][3]     = 1
-                cache[0:3,:]    = np.copy(mat)
-#                self.pose       = cache
-                self.pose       = np.linalg.inv(cache)
-                glUniformMatrix4fv(self.mvp, 1, GL_FALSE, self.pose)
-            for framebuffer in [self.fbl,self.fbr]:
+                self.pose       = matrixForOpenVrMatrix(mat).I
+            for id,framebuffer in enumerate([self.fbl,self.fbr]):
+#                self.MVP        = self.pose * self.projection[id] * self.view[id]
+                self.MVP        = self.pose * self.view[id] * self.projection[id]
+                glUniformMatrix4fv(self.mvp, 1, GL_FALSE, self.MVP)
                 glBindFramebuffer(GL_FRAMEBUFFER, framebuffer)
-                glClearColor(0.0, 0.0, 0.0, 0)
+                glClearColor(0.0, 0.0, 0.5, 0)
                 glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
-                glShadeModel(self.surface)
+                self.gradient()
                 self.gradient()
                 self.draw()
-                glBindFramebuffer(GL_FRAMEBUFFER, 0)
-            self.compositor.submit(openvr.Eye_Left, self.texturel)
-            self.compositor.submit(openvr.Eye_Right, self.texturer)
+                self.compositor.submit(self.eyes[id], self.texture[id])
+        else:
             glBindFramebuffer(GL_FRAMEBUFFER, 0)
-        if True:
             # Clearing the depth and color,
             glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
             # Set shade model,

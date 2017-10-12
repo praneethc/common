@@ -9,8 +9,8 @@ void main()
 {
     f_color     = gl_Color;
 //    gl_Position = gl_ModelViewProjectionMatrix * gl_Vertex;
-    gl_Position = MVP * gl_Vertex;
-//    gl_Position = gl_ModelViewProjectionMatrix * MVP * gl_Vertex;
+//    gl_Position = MVP * gl_Vertex;
+    gl_Position = MVP * gl_ModelViewProjectionMatrix *  gl_Vertex;
     UV          = vertexUV;
 }
 
