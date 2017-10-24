@@ -2,8 +2,8 @@ in vec2 vertexUV;
 
 uniform mat4 MVP;
 
-varying out vec4 f_color;
-varying out vec2 UV;
+out vec4 f_color;
+out vec2 UV;
 
 void main()
 {

@@ -1,0 +1,9 @@
+varying vec4 f_color;
+
+uniform mat4 MVP;
+
+void main() 
+{
+    f_color     = gl_Color;
+    gl_Position = MVP * gl_Vertex;
+}

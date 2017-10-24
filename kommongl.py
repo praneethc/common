@@ -4,6 +4,8 @@
 from math import *
 from kommon import *
 import numpy as np
+import pyrr
+from pyrr import Matrix44, Vector4, Vector3, Quaternion
 from scipy import linalg
 import ast
 try:
@@ -128,7 +130,8 @@ class drawgl:
         self.mouse_pos  = np.array([0.,0.])
         # Load fragment shaders,
         self.path           =  os.path.dirname(os.path.realpath(__file__))
-        fn                  = '%s/shaders/simple.frag' % os.path.dirname(os.path.realpath(__file__))
+#        fn                  = '%s/shaders/simple.frag' % os.path.dirname(os.path.realpath(__file__))
+        fn                  = '%s/shaders/blank.frag' % os.path.dirname(os.path.realpath(__file__))
         self.program        = self.LoadShader(shaderloc=fn,both=True)
         glUseProgram(self.program)
         self.mvp            = glGetUniformLocation(self.program, 'MVP')
@@ -145,6 +148,10 @@ class drawgl:
         io.display_size     = self.res[0],self.res[1]
         io.display_fb_scale = 1.,1.
         io.delta_time       = 1.0/60
+        # Generating projection matrix,
+        self.zNear          = 0.01
+        self.zFar           = 5000.0
+        self.projcyclope    = self.projectionmatrix(60.,self.zNear, self.zFar)
         # OpenVR for near eye display support,
         if self.vrflag == True:
             poses_t = openvr.TrackedDevicePose_t * openvr.k_unMaxTrackedDeviceCount
@@ -203,12 +210,10 @@ class drawgl:
             self.texture              = [self.texturel,self.texturer]
             self.eyes                 = [openvr.Eye_Left,openvr.Eye_Right]
             # Compute projection matrix
-            zNear = 0.2
-            zFar = 500.0
-            self.view = []
-            self.projection = []
-            self.projection.append(np.asarray(matrixForOpenVrMatrix(self.vr_system.getProjectionMatrix(openvr.Eye_Left, zNear, zFar))))
-            self.projection.append(np.asarray(matrixForOpenVrMatrix(self.vr_system.getProjectionMatrix(openvr.Eye_Right, zNear, zFar))))
+            self.view        = []
+            self.projection  = []
+            self.projection.append(np.asarray(matrixForOpenVrMatrix(self.vr_system.getProjectionMatrix(openvr.Eye_Left, self.zNear, self.zFar))))
+            self.projection.append(np.asarray(matrixForOpenVrMatrix(self.vr_system.getProjectionMatrix(openvr.Eye_Right, self.zNear, self.zFar))))
             self.view.append(matrixForOpenVrMatrix(self.vr_system.getEyeToHeadTransform(openvr.Eye_Left)).I)
             self.view.append(matrixForOpenVrMatrix(self.vr_system.getEyeToHeadTransform(openvr.Eye_Right)).I)
     # Definition to exit class,
@@ -301,6 +306,7 @@ class drawgl:
             self.compute_location()
     # Compute location,
     def compute_location(self):
+        return
         self.rotateviewport()
         self.d = sqrt(
                       (self.camera_pos[0]-self.camera_center[0])**2+
@@ -327,6 +333,16 @@ class drawgl:
         # Set light.
         if self.lightflag == True:
             glLightfv(GL_LIGHT0, GL_POSITION, self.camera_pos)
+    # Definition to generate projection matrix,
+    def projectionmatrix(self,fovy,near,far):
+        glMatrixMode(GL_PROJECTION)
+        glLoadIdentity()
+        gluPerspective(fovy, float(self.res[1])/float(self.res[0]), near, far)
+        glMatrixMode(GL_MODELVIEW)
+        mvp = np.matrix(glGetFloatv(GL_PROJECTION_MATRIX))
+        mvp[3,3] = 1
+        print(mvp)
+        return mvp
     # Display definition,
     def display(self):
         #  For VR support,
@@ -351,8 +367,12 @@ class drawgl:
                 self.compositor.submit(self.eyes[id], self.texture[id])
         else:
             glBindFramebuffer(GL_FRAMEBUFFER, 0)
+            glUseProgram(self.program)
+            glViewport(0,0, self.res[0], self.res[1])
             # Clearing the depth and color,
+            glClearColor(0., 0., 0., 0.)
             glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
+            glUniformMatrix4fv(self.mvp, 1, GL_FALSE, self.projcyclope)
             # Set shade model,
             glShadeModel(self.surface)
             self.gradient()
@@ -406,6 +426,12 @@ class drawgl:
            self.camera_rotation[1] += 1
         if key == b'x':
            self.camera_rotation[1] -= 1
+        if key == b't':
+            self.camera_mul = 0.99
+            self.camera_pos = self.camera_center + self.camera_mul*(self.camera_pos-self.camera_center)
+        if key == b'y':
+            self.camera_mul = 1.01
+            self.camera_pos = self.camera_center + self.camera_mul*(self.camera_pos-self.camera_center)
         self.compute_location()
         glutPostRedisplay()
     # The idle callback,
@@ -444,6 +470,16 @@ class drawgl:
                 self.rectangularbox(loc=item[2],angles=item[3],size=item[4],color=item[5])
             elif item[0] == 'plane':
                 self.plane(loc=item[2],size=item[3],angles=item[4],color=item[5])
+    # Definition to prepare the scene,
+    def preparescene(self):
+        for item in self.items:
+          if type(self.selectedid) == type(False):
+              self.addtoscene(item)
+          if item[1] == self.selectedid and type(self.selectedid) != type(False):
+              self.addtoscene(item)
+    # Definition to add to the scene,
+#    def addtoscene(self,item):
+#        if item
     # Definition to add a ray to the rendering list,
     def addray(self,p0,p1,id=0,color=[1.,0.,0.,0.5],adddots=True):
         self.items.append(['ray',id,p0,p1,color])
