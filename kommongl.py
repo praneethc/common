@@ -451,10 +451,11 @@ class drawgl:
             if item[1] == self.selectedid and type(self.selectedid) != type(False):
                 self.drawprimitaves(item)
         for id in range(0,self.maxid+1):
-            if type(self.selectedid) == type(False):
-                self.display_rays(self.vertex_rays[id])
-            if self.vertex_rays[id][4] == self.selectedid and type(self.selectedid) != type(False):
-                self.display_rays(self.vertex_rays[id])
+            if len(self.vertex_rays) != 0:
+                if type(self.selectedid) == type(False):
+                    self.display_rays(self.vertex_rays[id])
+                if self.vertex_rays[id][4] == self.selectedid and type(self.selectedid) != type(False):
+                    self.display_rays(self.vertex_rays[id])
     # Definition for drawing primitive interpretation.
     def drawprimitaves(self,item):
             if item[0] == 'sphere':
@@ -472,6 +473,8 @@ class drawgl:
                 self.plane(loc=item[2],size=item[3],angles=item[4],color=item[5])
     # Definition to shift everything from CPU to GPU,
     def generatealldata(self,shader):
+        if len(self.items_rays) == 0:
+           return True
         for id in range(0,self.maxid+1):
             # Rays are being pushed to GPU,
             vertices    = self.items_rays[id]
