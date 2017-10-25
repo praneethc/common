@@ -83,9 +83,12 @@ class drawgl:
             glEnable(GL_BLEND)
             glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA)
         # List of things to render,
-        self.items     = []
+        self.items            = []
+        self.items_rays       = []
+        self.items_rays_c     = []
+        self.vertex_rays      = []
         # Timer variable,
-        self.last_time = 0
+        self.last_time        = 0
         # The surface type(Flat or Smooth),
         self.surface          = GL_SMOOTH
         # Viewport settings,
@@ -306,7 +309,6 @@ class drawgl:
             self.compute_location()
     # Compute location,
     def compute_location(self):
-        return
         self.rotateviewport()
         self.d = sqrt(
                       (self.camera_pos[0]-self.camera_center[0])**2+
@@ -335,14 +337,8 @@ class drawgl:
             glLightfv(GL_LIGHT0, GL_POSITION, self.camera_pos)
     # Definition to generate projection matrix,
     def projectionmatrix(self,fovy,near,far):
-        glMatrixMode(GL_PROJECTION)
-        glLoadIdentity()
-        gluPerspective(fovy, float(self.res[1])/float(self.res[0]), near, far)
-        glMatrixMode(GL_MODELVIEW)
-        mvp = np.matrix(glGetFloatv(GL_PROJECTION_MATRIX))
-        mvp[3,3] = 1
-        print(mvp)
-        return mvp
+        mvp      = pyrr.matrix44.create_perspective_projection(fovy, float(self.res[1])/float(self.res[0]), near, far)
+        return pyrr.matrix44.inverse(mvp)
     # Display definition,
     def display(self):
         #  For VR support,
@@ -367,19 +363,19 @@ class drawgl:
                 self.compositor.submit(self.eyes[id], self.texture[id])
         else:
             glBindFramebuffer(GL_FRAMEBUFFER, 0)
-            glUseProgram(self.program)
+            glUseProgram(0)
             glViewport(0,0, self.res[0], self.res[1])
             # Clearing the depth and color,
             glClearColor(0., 0., 0., 0.)
             glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
-            glUniformMatrix4fv(self.mvp, 1, GL_FALSE, self.projcyclope)
+#            glUniformMatrix4fv(self.mvp, 1, GL_FALSE, self.projcyclope)
             # Set shade model,
             glShadeModel(self.surface)
             self.gradient()
             # Imgui,
             self.menu()
             # Wireframe or fill?
-            glPolygonMode( GL_FRONT_AND_BACK, self.polygonmode )
+            glPolygonMode(GL_FRONT_AND_BACK, self.polygonmode)
             self.draw()
             # Swap buffers,
             glutSwapBuffers()
@@ -392,6 +388,7 @@ class drawgl:
         self.camera_pos    += self.camera_center+np.zeros([3])
         self.camera_pos[2]  = (np.amax(self.pmax[0:2])+np.abs(np.amin(self.pmin[0:2])))*2.
         self.compute_location()
+        self.generatealldata(self.program)
         glutMainLoop()
         return
     # Definition to rotate the viewport.
@@ -448,11 +445,14 @@ class drawgl:
             glutIdleFunc(None)
     # Definition to draw a scene.
     def draw(self):
+        for item in range(0,self.maxid):
+             self.display_rays(self.vertex_rays[item])
+
         for item in self.items:
-          if type(self.selectedid) == type(False):
-              self.drawprimitaves(item)
-          if item[1] == self.selectedid and type(self.selectedid) != type(False):
-              self.drawprimitaves(item)
+            if type(self.selectedid) == type(False):
+                self.drawprimitaves(item)
+            if item[1] == self.selectedid and type(self.selectedid) != type(False):
+                self.drawprimitaves(item)
     # Definition for drawing primitive interpretation.
     def drawprimitaves(self,item):
             if item[0] == 'sphere':
@@ -464,31 +464,63 @@ class drawgl:
                             r=item[6],
                             color=item[7]
                            )
-            elif item[0] == 'ray':
-                self.ray(p0=item[2],p1=item[3],color=item[4])
+#            elif item[0] == 'ray':
+#                self.ray(p0=item[2],p1=item[3],color=item[4])
             elif item[0] == 'box':
                 self.rectangularbox(loc=item[2],angles=item[3],size=item[4],color=item[5])
             elif item[0] == 'plane':
                 self.plane(loc=item[2],size=item[3],angles=item[4],color=item[5])
-    # Definition to prepare the scene,
-    def preparescene(self):
-        for item in self.items:
-          if type(self.selectedid) == type(False):
-              self.addtoscene(item)
-          if item[1] == self.selectedid and type(self.selectedid) != type(False):
-              self.addtoscene(item)
-    # Definition to add to the scene,
-#    def addtoscene(self,item):
-#        if item
+    # Definition to shift everything from CPU to GPU,
+    def generatealldata(self,shader):
+        vertices = [ 0.6,  0.6, 0.0, 1.0,
+                    -0.6,  0.6, 0.0, 1.0,
+                     0.0, -0.6, 0.0, 1.0]
+        vertices = np.array(vertices, dtype=np.float32)
+        for id in range(0,self.maxid):
+            vertices = np.array(self.items_rays[id], dtype=np.float32)
+            vertex_data = self.create_object(shader,vertices)
+            self.vertex_rays.append(vertex_data)
+        return True
+    def create_object(self,shader,vertices):
+        # Generate buffers to hold our vertices
+        vertex_buffer = glGenBuffers(1)
+        glBindBuffer(GL_ARRAY_BUFFER, vertex_buffer)
+        # Send the data over to the buffer
+        glBufferData(GL_ARRAY_BUFFER, len(vertices), vertices, GL_STATIC_DRAW)
+        return vertex_buffer
     # Definition to add a ray to the rendering list,
     def addray(self,p0,p1,id=0,color=[1.,0.,0.,0.5],adddots=True):
+        if id > self.maxid:
+            self.maxid = id
+        if id+1 > len(self.items_rays):
+            self.items_rays.append([])
+            self.items_rays_c.append([])
         self.items.append(['ray',id,p0,p1,color])
+        self.items_rays[id].append(p0.T.tolist()[0])
+        self.items_rays[id].append(p1.T.tolist()[0])
+        self.items_rays_c[id] = color
         if adddots == True:
             self.addsphere(id=id,loc=p1,lats=1,longs=1,r=0.1,color=color)
         self.maxmin(p0)
         self.maxmin(p1)
-        if id > self.maxid:
-            self.maxid = id
+    # Definition to display rays.
+    def display_rays(self,givenrays):
+        glUseProgram(self.program)
+
+        glEnableVertexAttribArray(0);
+        glBindBuffer(GL_ARRAY_BUFFER, givenrays);
+        glVertexAttribPointer(
+                              0, # attribute 0. No particular reason for 0, but must match the layout in the shader.
+                              2, # size
+                              GL_FLOAT, # type
+                              GL_FALSE, # normalized
+                              0, # stride
+                              0 # array buffer offset
+                             )
+        glDrawArrays(GL_LINES, 0, 2)
+        glDisableVertexAttribArray(0)
+
+        glUseProgram(0)
     # Definition to update the maximum and minimum.
     def maxmin(self,p):
         for id in range(0,3):
