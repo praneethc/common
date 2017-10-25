@@ -450,7 +450,7 @@ class drawgl:
                 self.drawprimitaves(item)
             if item[1] == self.selectedid and type(self.selectedid) != type(False):
                 self.drawprimitaves(item)
-        for id in range(0,self.maxid):
+        for id in range(0,self.maxid+1):
             if type(self.selectedid) == type(False):
                 self.display_rays(self.vertex_rays[id])
             if self.vertex_rays[id][4] == self.selectedid and type(self.selectedid) != type(False):
@@ -472,7 +472,7 @@ class drawgl:
                 self.plane(loc=item[2],size=item[3],angles=item[4],color=item[5])
     # Definition to shift everything from CPU to GPU,
     def generatealldata(self,shader):
-        for id in range(0,self.maxid):
+        for id in range(0,self.maxid+1):
             # Rays are being pushed to GPU,
             vertices    = self.items_rays[id]
             colors      = self.items_rays_c[id]
