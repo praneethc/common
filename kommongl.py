@@ -87,6 +87,7 @@ class drawgl:
         self.items_rays       = []
         self.items_rays_c     = []
         self.vertex_rays      = []
+        self.vertex_lengths   = []
         # Timer variable,
         self.last_time        = 0
         # The surface type(Flat or Smooth),
@@ -351,7 +352,6 @@ class drawgl:
                 mat             = hmd_pose0.mDeviceToAbsoluteTracking
                 self.pose       = matrixForOpenVrMatrix(mat).I
             for id,framebuffer in enumerate([self.fbl,self.fbr]):
-#                self.MVP        = self.pose * self.projection[id] * self.view[id]
                 self.MVP        = self.pose * self.view[id] * self.projection[id]
                 glUniformMatrix4fv(self.mvp, 1, GL_FALSE, self.MVP)
                 glBindFramebuffer(GL_FRAMEBUFFER, framebuffer)
@@ -446,7 +446,11 @@ class drawgl:
     # Definition to draw a scene.
     def draw(self):
         for item in range(0,self.maxid):
-             self.display_rays(self.vertex_rays[item])
+             self.display_rays(
+                               self.items_rays[item],
+                  #             self.vertex_rays[item],
+                               int(self.vertex_lengths[item])
+                              )
 
         for item in self.items:
             if type(self.selectedid) == type(False):
@@ -472,22 +476,60 @@ class drawgl:
                 self.plane(loc=item[2],size=item[3],angles=item[4],color=item[5])
     # Definition to shift everything from CPU to GPU,
     def generatealldata(self,shader):
-        vertices = [ 0.6,  0.6, 0.0, 1.0,
-                    -0.6,  0.6, 0.0, 1.0,
-                     0.0, -0.6, 0.0, 1.0]
-        vertices = np.array(vertices, dtype=np.float32)
+        s=60
+        vertices=[
+        -s, -s, -s,
+         s, -s, -s,
+         s,  s, -s,
+        -s,  s, -s,
+        -s, -s,  s,
+         s, -s,  s,
+         s,  s,  s,
+        -s,  s,  s,
+        ]
+        colors=[
+        0, 0, 0,
+        1, 0, 0,
+        0, 1, 0,
+        0, 0, 1,
+        0, 1, 1,
+        1, 0, 1,
+        1, 1, 1,
+        1, 1, 0,
+        ]
+        indices=[
+        0, 1, 2, 2, 3, 0,
+        0, 4, 5, 5, 1, 0,
+        1, 5, 6, 6, 2, 1,
+        2, 6, 7, 7, 3, 2,
+        3, 7, 4, 4, 0, 3,
+        4, 7, 6, 6, 5, 4,
+         ]
+       # vertices = np.array(vertices, dtype=np.float32)
         for id in range(0,self.maxid):
-            vertices = np.array(self.items_rays[id], dtype=np.float32)
-            vertex_data = self.create_object(shader,vertices)
+#            vertices = self.items_rays[id]
+            vertex_data = self.create_object(shader,vertices,indices,colors)
             self.vertex_rays.append(vertex_data)
+            self.vertex_lengths.append(len(indices))
         return True
-    def create_object(self,shader,vertices):
-        # Generate buffers to hold our vertices
-        vertex_buffer = glGenBuffers(1)
-        glBindBuffer(GL_ARRAY_BUFFER, vertex_buffer)
-        # Send the data over to the buffer
-        glBufferData(GL_ARRAY_BUFFER, len(vertices), vertices, GL_STATIC_DRAW)
-        return vertex_buffer
+    def create_object(self,shader,vertices,indices,colors):
+        buffers = glGenBuffers(3)
+        glBindBuffer(GL_ARRAY_BUFFER, buffers[0])
+        glBufferData(GL_ARRAY_BUFFER,
+                     len(vertices)*4,  # byte size
+                     (ctypes.c_float*len(vertices))(*vertices),
+                     GL_STATIC_DRAW)
+        glBindBuffer(GL_ARRAY_BUFFER, buffers[1])
+        glBufferData(GL_ARRAY_BUFFER,
+                     len(colors)*4,
+                     (ctypes.c_float*len(colors))(*colors),
+                     GL_STATIC_DRAW)
+        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, buffers[2])
+        glBufferData(GL_ELEMENT_ARRAY_BUFFER,
+                     len(indices)*4,
+                     (ctypes.c_uint*len(indices))(*indices),
+                     GL_STATIC_DRAW)
+        return buffers
     # Definition to add a ray to the rendering list,
     def addray(self,p0,p1,id=0,color=[1.,0.,0.,0.5],adddots=True):
         if id > self.maxid:
@@ -504,23 +546,20 @@ class drawgl:
         self.maxmin(p0)
         self.maxmin(p1)
     # Definition to display rays.
-    def display_rays(self,givenrays):
-        glUseProgram(self.program)
-
-        glEnableVertexAttribArray(0);
-        glBindBuffer(GL_ARRAY_BUFFER, givenrays);
-        glVertexAttribPointer(
-                              0, # attribute 0. No particular reason for 0, but must match the layout in the shader.
-                              2, # size
-                              GL_FLOAT, # type
-                              GL_FALSE, # normalized
-                              0, # stride
-                              0 # array buffer offset
-                             )
+    def display_rays(self,buffers,length):
+#        glUseProgram(self.program)
+        glEnableClientState(GL_VERTEX_ARRAY);
+        glEnableClientState(GL_COLOR_ARRAY);
+        glBindBuffer(GL_ARRAY_BUFFER, buffers);
+        glVertexPointer(2, GL_FLOAT, 0, buffers);
+#        glBindBuffer(GL_ARRAY_BUFFER, buffers[1]);
+ #       glColorPointer(3, GL_FLOAT, 0, None);
+ #       glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, buffers[2]);
+        #glDrawElements(GL_LINES, length, GL_UNSIGNED_INT, None);
         glDrawArrays(GL_LINES, 0, 2)
-        glDisableVertexAttribArray(0)
-
-        glUseProgram(0)
+        glDisableClientState(GL_COLOR_ARRAY)
+        glDisableClientState(GL_VERTEX_ARRAY);
+#        glUseProgram(0)
     # Definition to update the maximum and minimum.
     def maxmin(self,p):
         for id in range(0,3):
