@@ -445,13 +445,16 @@ class drawgl:
             glutIdleFunc(None)
     # Definition to draw a scene.
     def draw(self):
-        for item in range(0,self.maxid):
-             self.display_rays(self.vertex_rays[item])
         for item in self.items:
             if type(self.selectedid) == type(False):
                 self.drawprimitaves(item)
             if item[1] == self.selectedid and type(self.selectedid) != type(False):
                 self.drawprimitaves(item)
+        for id in range(0,self.maxid):
+            if type(self.selectedid) == type(False):
+                self.display_rays(self.vertex_rays[id])
+            if self.vertex_rays[id][4] == self.selectedid and type(self.selectedid) != type(False):
+                self.display_rays(self.vertex_rays[id])
     # Definition for drawing primitive interpretation.
     def drawprimitaves(self,item):
             if item[0] == 'sphere':
@@ -463,8 +466,6 @@ class drawgl:
                             r=item[6],
                             color=item[7]
                            )
-#            elif item[0] == 'ray':
-#                self.ray(p0=item[2],p1=item[3],color=item[4])
             elif item[0] == 'box':
                 self.rectangularbox(loc=item[2],angles=item[3],size=item[4],color=item[5])
             elif item[0] == 'plane':
@@ -472,13 +473,15 @@ class drawgl:
     # Definition to shift everything from CPU to GPU,
     def generatealldata(self,shader):
         for id in range(0,self.maxid):
+            # Rays are being pushed to GPU,
             vertices    = self.items_rays[id]
             colors      = self.items_rays_c[id]
             indices     = self.items_rays_i[id]
-            vertex_data = self.create_object(shader,vertices,indices,colors)
+            vertex_data = self.create_object(id,shader,vertices,indices,colors,objtype=0)
             self.vertex_rays.append(vertex_data)
         return True
-    def create_object(self,shader,vertices,indices,colors):
+    # Definition to generate vertices, objtype=0 is a ray,...
+    def create_object(self,id,shader,vertices,indices,colors,objtype=0):
         buffers = glGenBuffers(3)
         glBindBuffer(GL_ARRAY_BUFFER, buffers[0])
         glBufferData(GL_ARRAY_BUFFER,
@@ -496,6 +499,8 @@ class drawgl:
                      (ctypes.c_uint*len(indices))(*indices),
                      GL_STATIC_DRAW)
         buffers = np.append(buffers,len(vertices)/2).astype(int)
+        buffers = np.append(buffers,id).astype(int)
+        buffers = np.append(buffers,objtype).astype(int)
         return buffers
     # Definition to add a ray to the rendering list,
     def addray(self,p0,p1,id=0,color=[1.,0.,0.,0.5],adddots=True):
@@ -505,7 +510,6 @@ class drawgl:
             self.items_rays.append([])
             self.items_rays_c.append([])
             self.items_rays_i.append([])
-        self.items.append(['ray',id,p0,p1,color])
         self.items_rays[id].append(p0.T.tolist()[0][0])
         self.items_rays[id].append(p0.T.tolist()[0][1])
         self.items_rays[id].append(p0.T.tolist()[0][2])
