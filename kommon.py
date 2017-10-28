@@ -109,15 +109,82 @@ def definesphere(var):
                       var["curvature"],
                      ])
 
+# Definition to generate vector from two points and visualize,
+def twopointsvector(ray,port,ipo,drawgl=None,id=0,color=[1.0,1.0,1.0,1.0],debug=False):
+    # Create a ray.
+    vec0,s      = ray.createvectorfromtwopoints(
+                                                (port[0],port[1],port[2]),
+                                                (ipo[0],ipo[1],-ipo[2])
+                                               )
+    p           = np.asarray(port)
+    p           = np.resize(p,(3,1))
+    # Visual debug.
+    if debug == True:
+        p0 = np.array([
+                       [ipo[0]],
+                       [ipo[1]],
+                       [ipo[2]],
+                      ])
+        p1 = np.array([
+                       [port[0]],
+                       [port[1]],
+                       [port[2]],
+                      ])
+        drawgl.addray(p0,p1,color=color,id=id)
+    return vec0
+
 # Definition for an intersection chooser for Odak,
 def intersect(ray,vec,surface):
+    if ('data' in surface) == False:
+        surface = generatesurface(surface)
     if surface["type"] == "sphere":
-        ball  = definesphere(surface)
-        return ray.findinterspher(vec,ball)
+        return ray.findinterspher(
+                                  vec,
+                                  surface['data']
+                                 )
     if  surface["type"] == "plane":
-        plane = generateplane(surface["location"],angles=surface["angles"])
-        return ray.findintersurface(vec,(plane[0],plane[1],plane[2]))
+        return ray.findintersurface(
+                                    vec,
+                                        (
+                                         surface['data'][0],
+                                         surface['data'][1],
+                                         surface['data'][2]
+                                        )
+                                   )
     self.prompt("Surface wasn't identified by intersect definition, terminating...")
+    return False,False,False
+
+# Definition to generate surface data.
+def generatesurface(surface):
+    if surface["type"] == "sphere":
+        data = definesphere(surface)
+        surface["data"] = data
+        return surface
+    if  surface["type"] == "plane":
+        data = generateplane(surface["location"],angles=surface["angles"])
+        surface["data"] = data
+        return surface
+    self.prompt("Surface wasn't identified by surface generation definition, terminating...")
+    return False
+
+# Definition for Odak for interaction between  ray and a surface,
+def surfaceinteract(ray,vec,n,surface,id=0,color=[1.,1.,1.,1.],drawgl=None,debug=False):
+    # Find the intersection between ray and a surface,
+    dist0,norm0 = intersect(ray,vec,surface)
+    if type(dist0) == type(False):
+       return False
+    # Visual debug,
+    if debug == True:
+       drawgl.addray(vec[0],norm0[0],color=color,id=id)
+    # Refract if you can,
+    vec0 = ray.snell(vec,norm0,n[1],n[0])
+    if type(vec0) != type(False):
+       return vec0,norm0,surface
+    elif type(vec0) == type(False):
+       vec1 = ray.reflect(vec,norm0)
+       return vec1,norm0,surface
+    print('Something went wrong with surface intersect')
+    return False,False,False
 
 # Definition to generate gaussian kernel,
 def gaussian_kernel(size, sizey=None):
@@ -160,18 +227,6 @@ def convolve_images(Input1,Input2,ResultFilename='ConvolutionResult.png'):
     # Storing the result as a file.
     scipy.misc.imsave(ResultFilename,result)
     return result
-
-# Definition to get keypress from a shell,
-# Taken from http://www.jonwitts.co.uk/archives/896
-def getch():
-    fd = sys.stdin.fileno()
-    old_settings = termios.tcgetattr(fd)
-    try:
-        tty.setraw(sys.stdin.fileno())
-        ch = sys.stdin.read(1)
-    finally:
-        termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
-    return ch
 
 # Elem terefiş, kem gözlere şiş!
 if __name__ == '__main__':
