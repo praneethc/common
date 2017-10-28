@@ -212,6 +212,26 @@ def normalize(data,k=1):
     result -= np.amin(result)
     return result/np.amax(result)*k
 
+# Definition to figure out if the point is on the rectangle,
+def isitonrectangle(ray,vec,surface):
+    if surface["aperture type"] == "rectangular":
+        prompt("Surface type is not rectangular.")
+        return False
+    a      = surface[size][0]/2.
+    b      = surface[size][1]/2.
+    points = [
+              [ a,  b, 0.],
+              [-a, -b, 0.],
+              [-a,  b, 0.],
+              [ a, -b, 0.]
+             ]
+    for id in range(0,4):
+        points[id]  = rotatepoint(points[id],angles=surface["angles"])
+        points[id] += surface["location"]
+    if ray.isitontriangle(vec[0],points[0],points[1],points[2]) == True or ray.isitontriangle(vec0,points[0],points[1],points[3]) == True:
+       return True
+    return False
+
 def convolve_images(Input1,Input2,ResultFilename='ConvolutionResult.png'):
     # Reading the input from the file.
     img1  = scipy.misc.imread(Input1)
