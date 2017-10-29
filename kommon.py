@@ -145,11 +145,11 @@ def intersect(ray,vec,surface):
     if  surface["type"] == "plane":
         return ray.findintersurface(
                                     vec,
-                                        (
-                                         surface['data'][0],
-                                         surface['data'][1],
-                                         surface['data'][2]
-                                        )
+                                    (
+                                     surface['data'][0],
+                                     surface['data'][1],
+                                     surface['data'][2]
+                                    )
                                    )
     self.prompt("Surface wasn't identified by intersect definition, terminating...")
     return False,False,False
@@ -179,10 +179,10 @@ def surfaceinteract(ray,vec,n,surface,id=0,color=[1.,1.,1.,1.],drawgl=None,debug
     # Refract if you can,
     vec0 = ray.snell(vec,norm0,n[1],n[0])
     if type(vec0) != type(False):
-       return vec0,norm0,surface
+       return vec0,norm0,surface,'refracted'
     elif type(vec0) == type(False):
        vec1 = ray.reflect(vec,norm0)
-       return vec1,norm0,surface
+       return vec1,norm0,surface,'reclected'
     print('Something went wrong with surface intersect')
     return False,False,False
 
