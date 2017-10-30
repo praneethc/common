@@ -168,7 +168,9 @@ def generatesurface(surface):
     return False
 
 # Definition for Odak for interaction between  ray and a surface,
-def surfaceinteract(ray,vec,n,surface,id=0,color=[1.,1.,1.,1.],drawgl=None,debug=False):
+def surfaceinteract(ray,vec,n0,n1,surface,id=0,color=[1.,1.,1.,1.],drawgl=None,debug=False):
+    # Arange refractive indeces,
+    n           = [n0,n1]
     # Find the intersection between ray and a surface,
     dist0,norm0 = intersect(ray,vec,surface)
     if type(dist0) == type(False):
