@@ -360,8 +360,6 @@ class drawgl:
                 glBindFramebuffer(GL_FRAMEBUFFER, framebuffer)
                 glClearColor(0.0, 0.0, 0.5, 0)
                 glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
-                self.gradient()
-                self.gradient()
                 self.draw()
                 self.compositor.submit(self.eyes[id], self.texture[id])
             glUseProgram(0)
