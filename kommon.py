@@ -184,7 +184,7 @@ def surfaceinteract(ray,vec,n0,n1,surface,id=0,color=[1.,1.,1.,1.],drawgl=None,d
        return vec0,norm0,surface,'refracted'
     elif type(vec0) == type(False):
        vec1 = ray.reflect(vec,norm0)
-       return vec1,norm0,surface,'refclected'
+       return vec1,norm0,surface,'reflected'
     print('Something went wrong with surface intersect')
     return False,False,False
 
