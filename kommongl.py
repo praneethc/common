@@ -135,7 +135,10 @@ class drawgl:
         # Load fragment shaders,
         self.path           =  os.path.dirname(os.path.realpath(__file__))
 #        fn                  = '%s/shaders/simple.frag' % os.path.dirname(os.path.realpath(__file__))
-        fn                  = '%s/shaders/blank.frag' % os.path.dirname(os.path.realpath(__file__))
+        if self.vrflag == True:
+            fn = '%s/shaders/openvr.frag' % os.path.dirname(os.path.realpath(__file__))
+        else:
+            fn = '%s/shaders/blank.frag' % os.path.dirname(os.path.realpath(__file__))
         self.program        = self.LoadShader(shaderloc=fn,both=True)
         glUseProgram(self.program)
         self.mvp            = glGetUniformLocation(self.program, 'MVP')
@@ -345,22 +348,21 @@ class drawgl:
         #  For VR support,
         if self.vrflag == True:
             glBindFramebuffer(GL_FRAMEBUFFER, 0)
-            glUseProgram(self.program)
             self.compositor.waitGetPoses(self.poses, openvr.k_unMaxTrackedDeviceCount, None, 0)
             hmd_pose0 = self.poses[openvr.k_unTrackedDeviceIndex_Hmd]
             if hmd_pose0.bPoseIsValid:
                 mat             = hmd_pose0.mDeviceToAbsoluteTracking
-                self.pose       = matrixForOpenVrMatrix(mat).I
+                self.pose       = np.asarray(matrixForOpenVrMatrix(mat).I)
             for id,framebuffer in enumerate([self.fbl,self.fbr]):
-                self.MVP        = self.pose * self.view[id] * self.projection[id]
+                glUseProgram(self.program)
+                self.MVP        = np.dot(self.pose,np.dot(self.view[id],self.projection[id]))
                 glUniformMatrix4fv(self.mvp, 1, GL_FALSE, self.MVP)
                 glBindFramebuffer(GL_FRAMEBUFFER, framebuffer)
                 glClearColor(0.0, 0.0, 0.5, 0)
                 glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
-                self.gradient()
-                self.gradient()
                 self.draw()
                 self.compositor.submit(self.eyes[id], self.texture[id])
+            glUseProgram(0)
         else:
             glBindFramebuffer(GL_FRAMEBUFFER, 0)
             glUseProgram(0)
@@ -368,7 +370,6 @@ class drawgl:
             # Clearing the depth and color,
             glClearColor(0., 0., 0., 0.)
             glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
-#            glUniformMatrix4fv(self.mvp, 1, GL_FALSE, self.projcyclope)
             # Set shade model,
             glShadeModel(self.surface)
             self.gradient()
