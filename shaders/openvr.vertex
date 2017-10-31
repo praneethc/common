@@ -1,0 +1,14 @@
+varying vec4 f_color;
+in vec3 vin_position;
+
+uniform mat4 MVP;
+float scale=0.01;
+
+void main() 
+{
+    f_color      = gl_Color;
+    gl_Vertex.x *= scale;
+    gl_Vertex.y *= scale;
+    gl_Vertex.z *= scale;
+    gl_Position  = MVP * gl_Vertex;
+}
