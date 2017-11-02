@@ -5,6 +5,9 @@ from math import *
 from kommon import *
 import numpy as np
 import pyrr
+import threading
+import time
+from threading import Thread
 from pyrr import Matrix44, Vector4, Vector3, Quaternion
 from scipy import linalg
 import ast
@@ -41,9 +44,11 @@ def matrixForOpenVrMatrix(mat):
         return result
 
 # Class for drawing using OpenGL.
-class drawgl:
+class drawgl(Thread):
+#class drawgl():
     # Constructor for the class
     def __init__(self,res=[1000,1000],loc=[0,0],title='OpenGL',lightflag=True,transparencyflag=True,vrflag=False):
+        Thread.__init__(self)
         # Title of the window,
         self.title = title
         # Resolution and location,
@@ -134,7 +139,6 @@ class drawgl:
         self.mouse_pos  = np.array([0.,0.])
         # Load fragment shaders,
         self.path           =  os.path.dirname(os.path.realpath(__file__))
-#        fn                  = '%s/shaders/simple.frag' % os.path.dirname(os.path.realpath(__file__))
         if self.vrflag == True:
             fn = '%s/shaders/openvr.frag' % os.path.dirname(os.path.realpath(__file__))
         else:
@@ -381,7 +385,7 @@ class drawgl:
             # Swap buffers,
             glutSwapBuffers()
     # Start displaying,
-    def start(self):
+    def run(self):
         # Run the OpenGL main loop,
         self.camera_center  = (self.pmax+self.pmin)/2.
         if np.count_nonzero(self.pmax) == 0 :
@@ -391,6 +395,8 @@ class drawgl:
         self.compute_location()
         self.generatealldata(self.program)
         glutMainLoop()
+        while True:
+            print('hey')
         return
     # Definition to rotate the viewport.
     def rotateviewport(self):
