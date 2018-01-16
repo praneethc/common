@@ -5,8 +5,6 @@ from math import *
 from kommon import *
 import numpy as np
 import pyrr
-import threading
-import time
 from threading import Thread
 from pyrr import Matrix44, Vector4, Vector3, Quaternion
 from scipy import linalg
@@ -44,21 +42,38 @@ def matrixForOpenVrMatrix(mat):
         return result
 
 # Class for drawing using OpenGL.
-class drawgl(Thread):
-#class drawgl():
+class drawgl():
     # Constructor for the class
-    def __init__(self,res=[1000,1000],loc=[0,0],title='OpenGL',lightflag=True,transparencyflag=True,vrflag=False):
-        Thread.__init__(self)
+    def __init__(self,res=[1000,1000],loc=[0,0],title='OpenGL',lightflag=True,transparencyflag=True,vrflag=False,dummy=False):
         # Title of the window,
         self.title = title
         # Resolution and location,
         self.res   = np.asarray(res)
         self.loc   = np.asarray(loc)
+        # List of things to render,
+        self.items            = []
+        self.items_rays       = []
+        self.items_rays_c     = []
+        self.items_rays_i     = []
+        self.vertex_rays      = []
+        # Viewport settings,
+        self.camera_center    = np.array([0.,0.,0.])
+        self.camera_rotation  = np.array([180.,90.])
+        self.camera_pos       = np.array([0.,0.1,10.])
+        self.camera_shift     = False
+        self.camera_rot       = False
+        self.pmax             = np.zeros((3))
+        self.pmin             = np.zeros((3))
+        # Selected id for drawing.
+        self.selectedid       = False
+        self.maxid            = 0
+        # Timer variable,
+        self.last_time        = 0
+        # If this is not for visualization directly,
+        if dummy == True:
+            return
         # Initialize the OpenGL pipeline,
         glutInit()
-        # Selected id for drawing.
-        self.selectedid  = False
-        self.maxid       = 0
         # Set the light flag,
         self.lightflag   = lightflag
         # Set the polygon mode: GL_FILL or GL_LINE,
@@ -87,24 +102,8 @@ class drawgl(Thread):
         if self.transparencyflag == True:
             glEnable(GL_BLEND)
             glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA)
-        # List of things to render,
-        self.items            = []
-        self.items_rays       = []
-        self.items_rays_c     = []
-        self.items_rays_i     = []
-        self.vertex_rays      = []
-        # Timer variable,
-        self.last_time        = 0
         # The surface type(Flat or Smooth),
         self.surface          = GL_SMOOTH
-        # Viewport settings,
-        self.camera_center    = np.array([0.,0.,0.])
-        self.camera_rotation  = np.array([180.,90.])
-        self.camera_pos       = np.array([0.,0.1,10.])
-        self.camera_shift     = False
-        self.camera_rot       = False
-        self.pmax             = np.zeros((3))
-        self.pmin             = np.zeros((3))
         # Compute viewport location,
         self.compute_location()
         # Set OpenGL parameters,
@@ -227,6 +226,20 @@ class drawgl(Thread):
             self.projection.append(np.asarray(matrixForOpenVrMatrix(self.vr_system.getProjectionMatrix(openvr.Eye_Right, self.zNear, self.zFar))))
             self.view.append(matrixForOpenVrMatrix(self.vr_system.getEyeToHeadTransform(openvr.Eye_Left)).I)
             self.view.append(matrixForOpenVrMatrix(self.vr_system.getEyeToHeadTransform(openvr.Eye_Right)).I)
+    # Definition to dump information from a different object,
+    def dump(self,obj):
+        # List of things to render,
+        self.items            = obj.items
+        self.items_rays       = obj.items_rays
+        self.items_rays_c     = obj.items_rays_c
+        self.items_rays_i     = obj.items_rays_i
+        self.vertex_rays      = obj.vertex_rays
+        # Viewport settings,
+        self.pmax             = obj.pmax
+        self.pmin             = obj.pmin
+        # Selected id for drawing.
+        self.maxid            = obj.maxid
+        return True
     # Definition to exit class,
     def __exit__(self, type_arg, value, traceback):
         if self.vr_system is not None:
@@ -385,7 +398,7 @@ class drawgl(Thread):
             # Swap buffers,
             glutSwapBuffers()
     # Start displaying,
-    def run(self):
+    def start(self):
         # Run the OpenGL main loop,
         self.camera_center  = (self.pmax+self.pmin)/2.
         if np.count_nonzero(self.pmax) == 0 :
@@ -393,11 +406,12 @@ class drawgl(Thread):
         self.camera_pos    += self.camera_center+np.zeros([3])
         self.camera_pos[2]  = (np.amax(self.pmax[0:2])+np.abs(np.amin(self.pmin[0:2])))*2.
         self.compute_location()
-        self.generatealldata(self.program)
+        self.updatedata()
         glutMainLoop()
-        while True:
-            print('hey')
         return
+    # Definition to update data,
+    def updatedata(self):
+        self.generatealldata(self.program)
     # Definition to rotate the viewport.
     def rotateviewport(self):
         pdiff= np.array([
@@ -513,7 +527,7 @@ class drawgl(Thread):
         buffers = np.append(buffers,objtype).astype(int)
         return buffers
     # Definition to add a ray to the rendering list,
-    def addray(self,p0,p1,id=0,color=[1.,0.,0.,0.5],adddots=True):
+    def addray(self,p0,p1,id=0,color=[1.,0.,0.,0.5]):
         if id > self.maxid:
             self.maxid = id
         if id+1 > len(self.items_rays):
@@ -532,8 +546,6 @@ class drawgl(Thread):
             self.items_rays_c[id].append(color[2])
         self.items_rays_i[id].append(len(self.items_rays_i))
         self.items_rays_i[id].append(len(self.items_rays_i)+1)
-        if adddots == True:
-            self.addsphere(id=id,loc=p1,lats=1,longs=1,r=0.1,color=color)
         self.maxmin(p0)
         self.maxmin(p1)
     # Definition to display rays.
